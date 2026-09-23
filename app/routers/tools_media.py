@@ -43,7 +43,7 @@ FORMAT_ID_RE = re.compile(r"^[\w+-]{1,40}$")
 ANON_CLIENTS = ["tv", "web_safari", "web"]
 AUTH_CLIENTS = ["web_safari", "web"]
 
-_progress: dict[str, int] = {}
+_progress: dict[str, dict] = {}
 _active = 0
 _lock = threading.Lock()
 
@@ -192,23 +192,41 @@ def _download(job_id: str, url: str, format_id: str) -> None:
     yt_dlp = _ytdlp()
     d = jobs.task_dir(job_id)
 
+    def _fmt_speed(v) -> str:
+        try:
+            v = float(v or 0)
+        except (TypeError, ValueError):
+            return ""
+        if v <= 0:
+            return ""
+        for unit in ("o/s", "Ko/s", "Mo/s"):
+            if v < 1024 or unit == "Mo/s":
+                return f"{v:.1f} {unit}"
+            v /= 1024
+        return ""
+
     def hook(progress: dict) -> None:
         if progress.get("status") == "downloading":
             total = progress.get("total_bytes") or progress.get("total_bytes_estimate") or 0
             done = progress.get("downloaded_bytes") or 0
-            if total:
-                _progress[job_id] = min(99, int(done * 100 / total))
+            pct = min(99, int(done * 100 / total)) if total else 0
+            _progress[job_id] = {
+                "p": pct,
+                "speed": _fmt_speed(progress.get("speed")),
+                "eta": str(progress.get("eta") or ""),
+            }
 
     opts = _base_opts()
     opts.update({
         "format": format_id, "merge_output_format": "mp4",
         "restrictfilenames": True, "nooverwrites": True,
         "max_filesize": MAX_FILESIZE, "socket_timeout": 20,
+        "concurrent_fragments": 4,
         "outtmpl": str(d / "%(title).80s [%(id)s].%(ext)s"),
         "progress_hooks": [hook],
     })
     try:
-        _progress[job_id] = 0
+        _progress[job_id] = {"p": 0, "speed": "", "eta": ""}
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         files = sorted(d.glob("*"), key=lambda p: p.stat().st_size, reverse=True)
@@ -216,7 +234,7 @@ def _download(job_id: str, url: str, format_id: str) -> None:
         if not files:
             raise RuntimeError("Aucun fichier produit.")
         jobs.update_job(job_id, status="completed", result_file=files[0].name)
-        _progress[job_id] = 100
+        _progress[job_id] = {"p": 100, "speed": "", "eta": ""}
     except Exception as e:
         jobs.update_job(job_id, status="failed", error=str(e)[:300])
     finally:
@@ -230,9 +248,14 @@ def job_status(job_id: str):
     job = jobs.get_job(safe)
     if not job or job.type != "youtube":
         raise HTTPException(status_code=404, detail="Tâche inconnue.")
+    prog = _progress.get(safe, {"p": 0, "speed": "", "eta": ""})
+    if isinstance(prog, int):  # compat ancien format
+        prog = {"p": prog, "speed": "", "eta": ""}
     return {
         "status": job.status,
-        "progress": _progress.get(safe, 0),
+        "progress": prog.get("p", 0),
+        "speed": prog.get("speed", ""),
+        "eta": prog.get("eta", ""),
         "error": job.error,
         "filename": job.result_file,
     }

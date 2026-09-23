@@ -245,7 +245,7 @@ async function runYoutube(t){
     for(let i=0;i<150;i++){
       await new Promise(res=>setTimeout(res,2000));
       const jj=await (await fetch("/api/tools/media/job/"+j2.job_id)).json();
-      if(jj.status==="processing"||jj.status==="queued"){ $("#toolOutput").textContent=`⏳ Téléchargement… ${jj.progress}%`; continue; }
+      if(jj.status==="processing"||jj.status==="queued"){ $("#toolOutput").textContent=`⏳ Téléchargement… ${jj.progress}%${jj.speed?" • "+jj.speed:""}${jj.eta?" • ETA "+jj.eta+"s":""}`; continue; }
       if(jj.status==="completed"){
         $("#toolOutput").textContent=`✅ Terminé : ${jj.filename}`;
         const a=$("#toolDownload"); a.href="/api/tools/media/result/"+j2.job_id; a.download=jj.filename||"video.mp4";
