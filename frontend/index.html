@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛠 Toolbox privée</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🛠 TOOLBOX <span class="sub">Tous tes outils au même endroit</span></div>
+  <div class="top-actions">
+    <button id="themeBtn" title="Mode sombre/clair">🌙</button>
+    <button id="logoutBtn" class="hidden">Déconnexion</button>
+  </div>
+</header>
+
+<!-- Login -->
+<section id="loginView" class="login-wrap hidden">
+  <form id="loginForm" class="card login-card">
+    <h2>🔒 Accès privé</h2>
+    <p class="muted">Connecte-toi pour utiliser ta toolbox.</p>
+    <label>Utilisateur<input id="loginUser" autocomplete="username" value="admin"></label>
+    <label>Mot de passe<input id="loginPass" type="password" autocomplete="current-password"></label>
+    <button type="submit">Se connecter</button>
+    <p id="loginError" class="error"></p>
+  </form>
+</section>
+
+<!-- App -->
+<main id="appView" class="hidden">
+  <div class="searchbar">
+    <input id="search" type="search" placeholder="🔍 Rechercher un outil... (ex : qr, tva, json, gc)">
+  </div>
+
+  <section class="cats">
+    <button data-cat="all" class="cat active">⭐ Tout</button>
+    <button data-cat="texte">📝 Texte &amp; Code</button>
+    <button data-cat="calc">🧮 Calculatrices</button>
+    <button data-cat="bio">🧬 Bioinfo</button>
+    <button data-cat="qr">🔳 QR</button>
+    <button data-cat="img">🖼️ Images</button>
+    <button data-cat="soon">📄 PDF / 🎬 Média (bientôt)</button>
+  </section>
+
+  <p id="recentLine" class="muted"></p>
+  <div id="toolsGrid" class="grid"></div>
+</main>
+
+<!-- Panneau outil -->
+<div id="toolModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="toolTitle"></h3>
+      <button id="toolClose">✕</button>
+    </div>
+    <p id="toolDesc" class="muted"></p>
+    <div id="toolFields"></div>
+    <div class="row">
+      <button id="toolRun" class="primary">Exécuter</button>
+      <button id="toolFav">☆ Favori</button>
+    </div>
+    <div id="toolProgress" class="progress hidden"><div></div></div>
+    <pre id="toolOutput" class="output" placeholder="Résultat..."></pre>
+    <div id="toolDownloadWrap" class="hidden"><a id="toolDownload" download="resultat.png" class="btn">⬇ Télécharger le résultat</a></div>
+    <p id="toolError" class="error"></p>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

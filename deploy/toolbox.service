@@ -1,0 +1,18 @@
+[Unit]
+Description=Toolbox privee FastAPI (uvicorn)
+After=network.target
+
+[Service]
+# Adapter User/WorkingDirectory au serveur Oracle
+User=ubuntu
+WorkingDirectory=/home/ubuntu/toolbox
+EnvironmentFile=/home/ubuntu/toolbox/.env
+ExecStart=/home/ubuntu/toolbox/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+# Limites ressources (Always Free) : évite qu'un gros traitement tue la VM
+MemoryMax=1500M
+CPUQuota=150%
+
+[Install]
+WantedBy=multi-user.target
