@@ -34,9 +34,18 @@ const TOOLS = [
   {id:"qr", cat:"qr", icon:"🔳", name:"Générateur QR code", desc:"QR local → PNG.", fields:[{k:"text",label:"Texte / URL",type:"textarea"},{k:"size",label:"Taille case (4-20)",type:"number",def:10}], ep:"/api/tools/qr/generate", blob:true},
   // Images
   {id:"imgconv", cat:"img", icon:"🖼️", name:"Convertisseur d'image", desc:"JPG/PNG/WebP + resize, rotation, miroir, N&B.", fields:[{k:"file",label:"Image (max 20 Mo)",type:"file"},{k:"format",label:"Format de sortie",type:"select",opts:["jpg","png","webp"],def:"jpg"},{k:"quality",label:"Qualité JPG/WebP (10-100)",type:"number",def:85},{k:"resize_max",label:"Redimensionner (plus grand côté px, 0 = inchangé)",type:"number",def:0},{k:"rotate",label:"Rotation",type:"select",opts:["0","90","180","270"]},{k:"flip",label:"Miroir",type:"select",opts:["none","horizontal","vertical"]},{k:"grayscale",label:"Noir & blanc",type:"check",def:false},{k:"strip_exif",label:"Supprimer métadonnées EXIF",type:"check",def:true}], ep:"/api/tools/image/convert", blob:true, multipart:true},
+  // Documents PDF
+  {id:"pdfmerge", cat:"pdf", icon:"📚", name:"Fusionner des PDF", desc:"2 à 20 PDF en un seul.", fields:[{k:"files",label:"PDF (2 mini)",type:"file",multiple:true,accept:"application/pdf"}], ep:"/api/tools/pdf/merge", blob:true, multipart:true},
+  {id:"pdfsplit", cat:"pdf", icon:"✂️", name:"Séparer / extraire pages", desc:"Ex : 1-3,5. Max 500 pages.", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"},{k:"pages",label:"Pages (ex : 1-3,5 — vide = tout)",type:"text",def:""}], ep:"/api/tools/pdf/split", blob:true, multipart:true},
+  {id:"pdfrotate", cat:"pdf", icon:"🔄", name:"Rotation de pages", desc:"90/180/270° sur tout ou sélection.", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"},{k:"pages",label:"Pages (vide = tout)",type:"text",def:""},{k:"angle",label:"Angle",type:"select",opts:["90","180","270"]}], ep:"/api/tools/pdf/rotate", blob:true, multipart:true},
+  {id:"pdf2img", cat:"pdf", icon:"🖼️", name:"PDF → images (ZIP)", desc:"Chaque page en PNG/JPG. Max 50 pages.", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"},{k:"dpi",label:"Qualité DPI",type:"select",opts:["72","100","150","200","300"],def:"150"},{k:"format",label:"Format",type:"select",opts:["png","jpg"]}], ep:"/api/tools/pdf/to-images", blob:true, multipart:true},
+  {id:"img2pdf", cat:"pdf", icon:"📄", name:"Images → PDF", desc:"1 à 20 images en un PDF.", fields:[{k:"files",label:"Images",type:"file",multiple:true}], ep:"/api/tools/pdf/from-images", blob:true, multipart:true},
+  {id:"pdfmeta", cat:"pdf", icon:"🏷️", name:"Métadonnées PDF", desc:"Lire, ou nettoyer + télécharger.", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"},{k:"strip",label:"Supprimer les métadonnées (renvoie un PDF nettoyé)",type:"check",def:false}], ep:"/api/tools/pdf/metadata", blob:true, multipart:true, metaSwitch:true},
+  {id:"pdfcompress", cat:"pdf", icon:"🗜️", name:"Compresser un PDF", desc:"Réenregistrement optimisé (gain variable).", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"}], ep:"/api/tools/pdf/compress", blob:true, multipart:true},
+  // Média
+  {id:"yt", cat:"media", icon:"📥", name:"YouTube (contenus autorisés)", desc:"Formats puis téléchargement. Max 30 min.", fields:[{k:"url",label:"URL YouTube",type:"text"},{k:"confirm_rights",label:"Je confirme avoir le droit de télécharger ce contenu",type:"check",def:false},{k:"format_id",label:"Format (cliquez Exécuter pour lister)",type:"select",opts:["—"]}], ep:"/api/tools/media/fetch", youtube:true},
   // Bientôt
-  {id:"pdf", cat:"soon", icon:"📄", name:"PDF (Phase 3)", desc:"Fusion, split, compress, OCR…", soon:true},
-  {id:"media", cat:"soon", icon:"🎬", name:"Vidéo/Audio (Phase 5)", desc:"FFmpeg, yt-dlp…", soon:true},
+  {id:"office", cat:"soon", icon:"📝", name:"Word/PDF + OCR (bientôt)", desc:"LibreOffice, Tesseract…", soon:true},
   {id:"ai", cat:"soon", icon:"🤖", name:"IA (Phase 6, optionnel)", desc:"Résumé, QCM… désactivé.", soon:true},
 ];
 
@@ -121,7 +130,7 @@ function openTool(t){
   const box=$("#toolFields"); box.innerHTML="";
   t.fields.forEach(f=>{
     const div=document.createElement("div"); div.className="field";
-    if(f.type==="file") div.innerHTML=`<label>${f.label}<input type="file" accept="image/*" data-k="${f.k}"></label>`;
+    if(f.type==="file"){ const mult=f.multiple?" multiple":""; const acc=f.accept?` accept="${f.accept}"`:" accept=\"image/*\""; div.innerHTML=`<label>${f.label}<input type="file"${mult}${acc} data-k="${f.k}"></label>`; }
     else if(f.type==="textarea") div.innerHTML=`<label>${f.label}<textarea data-k="${f.k}">${f.def||""}</textarea></label>`;
     else if(f.type==="select") div.innerHTML=`<label>${f.label}<select data-k="${f.k}">${f.opts.map(o=>`<option ${o===(f.def||f.opts[0])?"selected":""}>${o}</option>`).join("")}</select></label>`;
     else if(f.type==="check") div.innerHTML=`<label><input type="checkbox" data-k="${f.k}" ${f.def?"checked":""}> ${f.label}</label>`;
@@ -141,7 +150,10 @@ function collectPayload(t){
     const el=document.querySelector(`[data-k="${f.k}"]`);
     if(f.type==="check") p[f.k]=el.checked;
     else if(f.type==="number") p[f.k]=Number(el.value);
-    else if(f.type==="file"){ if(!el.files.length) throw new Error("Choisissez un fichier image."); p[f.k]=el.files[0]; }
+    else if(f.type==="file"){
+      if(!el.files.length) throw new Error("Choisissez un fichier.");
+      p[f.k]= f.multiple ? [...el.files] : el.files[0];
+    }
     else p[f.k]=el.value;
   });
   if(t.jsonNotes){ try{ p.notes=JSON.parse(p.notes);}catch(e){ throw new Error("Champ notes : JSON invalide."); } }
@@ -157,14 +169,25 @@ $("#toolRun").onclick=async ()=>{
   try{ payload=collectPayload(t); }catch(e){ $("#toolError").textContent=e.message; return; }
   $("#toolProgress").classList.remove("hidden");
   try{
+    if(t.youtube){ await runYoutube(t); }
+    else{
     let opts;
     if(t.multipart){
       const fd=new FormData();
-      for(const [k,v] of Object.entries(payload)) fd.append(k, v instanceof File?v:String(v));
+      for(const [k,v] of Object.entries(payload)){
+        if(Array.isArray(v)) v.forEach(f=>fd.append(k,f));
+        else fd.append(k, v instanceof File?v:String(v));
+      }
       opts={method:"POST",body:fd};
     } else opts={method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)};
     const r=await fetch(t.ep,opts);
-    if(t.blob){
+    const ctype=r.headers.get("Content-Type")||"";
+    if(t.metaSwitch && ctype.includes("application/json")){
+      const j=await r.json();
+      if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
+      $("#toolOutput").textContent=fmt(j);
+    }
+    else if(t.blob){
       if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||("HTTP "+r.status)); }
       const blob=await r.blob();
       const url=URL.createObjectURL(blob);
@@ -182,6 +205,7 @@ $("#toolRun").onclick=async ()=>{
       if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
       $("#toolOutput").textContent=fmt(j);
     }
+    }
     recent=[t.id,...recent.filter(x=>x!==t.id)].slice(0,5);
     localStorage.setItem("tb_recent",JSON.stringify(recent)); renderRecent();
   }catch(e){ $("#toolError").textContent="❌ "+e.message; }
@@ -191,6 +215,45 @@ $("#toolRun").onclick=async ()=>{
 function fmt(j){
   if(j.result!==undefined) return typeof j.result==="string"?j.result:JSON.stringify(j.result,null,2);
   return JSON.stringify(j,null,2);
+}
+
+async function runYoutube(t){
+  $("#toolProgress").classList.remove("hidden");
+  try{
+    const url=document.querySelector('[data-k="url"]').value.trim();
+    const confirm=document.querySelector('[data-k="confirm_rights"]').checked;
+    const sel=document.querySelector('[data-k="format_id"]');
+    if(!url) throw new Error("Collez une URL YouTube.");
+    if(!confirm) throw new Error("Cochez la confirmation de droits.");
+    if(!sel.dataset.loaded){
+      $("#toolOutput").textContent="⏳ Analyse de la vidéo…";
+      const r=await fetch("/api/tools/media/formats",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
+      const j=await r.json();
+      if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
+      if(!j.formats.length) throw new Error("Aucun format récupérable.");
+      sel.innerHTML=j.formats.map(f=>`<option value="${f.id}">${f.resolution} • ${f.ext} • ${f.vcodec}/${f.acodec}${f.size_mo?" • "+f.size_mo+" Mo":""}</option>`).join("");
+      sel.dataset.loaded="1";
+      $("#toolOutput").textContent=`🎬 ${j.title} (${Math.round((j.duration_s||0)/60)} min)\nChoisissez un format puis cliquez Exécuter.`;
+      return;
+    }
+    const fid=sel.value;
+    $("#toolOutput").textContent="⏳ Téléchargement lancé…";
+    const r2=await fetch(t.ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,format_id:fid,confirm_rights:true})});
+    const j2=await r2.json();
+    if(!r2.ok) throw new Error(j2.detail||("HTTP "+r2.status));
+    for(let i=0;i<150;i++){
+      await new Promise(res=>setTimeout(res,2000));
+      const jj=await (await fetch("/api/tools/media/job/"+j2.job_id)).json();
+      if(jj.status==="processing"||jj.status==="queued"){ $("#toolOutput").textContent=`⏳ Téléchargement… ${jj.progress}%`; continue; }
+      if(jj.status==="completed"){
+        $("#toolOutput").textContent=`✅ Terminé : ${jj.filename}`;
+        const a=$("#toolDownload"); a.href="/api/tools/media/result/"+j2.job_id; a.download=jj.filename||"video.mp4";
+        $("#toolDownloadWrap").classList.remove("hidden");
+      } else throw new Error(jj.error||"Échec du téléchargement.");
+      break;
+    }
+  }catch(e){ $("#toolError").textContent="❌ "+e.message; }
+  finally{ $("#toolProgress").classList.add("hidden"); }
 }
 
 initTheme(); checkMe();

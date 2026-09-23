@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, jobs
-from .routers import auth_routes, tools_bio, tools_calc, tools_image, tools_qr, tools_text
+from .routers import auth_routes, tools_bio, tools_calc, tools_image, tools_media, tools_pdf, tools_qr, tools_text
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("toolbox")
@@ -39,6 +39,8 @@ app.include_router(tools_calc.router)
 app.include_router(tools_bio.router)
 app.include_router(tools_qr.router)
 app.include_router(tools_image.router)
+app.include_router(tools_pdf.router)
+app.include_router(tools_media.router)
 
 
 @app.get("/", include_in_schema=False)

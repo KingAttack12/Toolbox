@@ -3,3 +3,6 @@ uvicorn[standard]==0.35.0
 python-multipart==0.0.20
 qrcode[pil]==8.2
 Pillow==11.3.0
+pypdf>=5
+PyMuPDF>=1.24
+yt-dlp>=2024
