@@ -5,6 +5,10 @@ case à cocher "droits confirmés" obligatoire, durée max 30 min,
 fichier max 500 Mo, 2 téléchargements simultanés max, fichiers purgés
 automatiquement (TTL via jobs.py). Nécessite ffmpeg sur le serveur
 (pour la fusion mp4) — sinon les formats directs seuls sont proposés.
+
+Anti-bot (mécanismes officiels yt-dlp uniquement) : clients tv/web_safari
+en anonyme, cookies du compte (JETABLE conseillé) + web_safari sinon.
+Jamais de contournement DRM, proxy, ferme à tokens ou autre bidouille.
 """
 from __future__ import annotations
 
@@ -30,11 +34,43 @@ ALLOWED_HOSTS = {
 MAX_DURATION_S = 30 * 60
 MAX_FILESIZE = 500 * 1024 * 1024
 MAX_CONCURRENT = 2
+MAX_COOKIES_BYTES = 100 * 1024
 FORMAT_ID_RE = re.compile(r"^[\w+-]{1,40}$")
+
+# Clients essayés dans l'ordre (doc officielle yt-dlp) :
+# - sans cookies : tv (le moins scruté) puis web_safari puis web ;
+# - avec cookies : JAMAIS tv (invalide la session) -> web_safari puis web.
+ANON_CLIENTS = ["tv", "web_safari", "web"]
+AUTH_CLIENTS = ["web_safari", "web"]
 
 _progress: dict[str, int] = {}
 _active = 0
 _lock = threading.Lock()
+
+
+def _cookie_path():
+    from .. import config
+
+    return config.DATA_DIR / "yt-cookies.txt"
+
+
+def _cookies_configured() -> bool:
+    p = _cookie_path()
+    return p.is_file() and p.stat().st_size > 0
+
+
+def _base_opts() -> dict:
+    """Options communes : clients + cookies éventuels (compte jetable conseillé)."""
+    opts: dict = {
+        "quiet": True, "no_warnings": True, "noplaylist": True,
+        "socket_timeout": 20,
+    }
+    if _cookies_configured():
+        opts["cookiefile"] = str(_cookie_path())
+        opts["extractor_args"] = {"youtube": {"player_client": AUTH_CLIENTS}}
+    else:
+        opts["extractor_args"] = {"youtube": {"player_client": ANON_CLIENTS}}
+    return opts
 
 
 def _ytdlp():
@@ -63,10 +99,9 @@ def validate_url(url: str) -> str:
 
 def _extract(url: str) -> dict:
     yt_dlp = _ytdlp()
-    opts = {
-        "quiet": True, "no_warnings": True, "noplaylist": True,
-        "socket_timeout": 15, "skip_download": True,
-    }
+    opts = _base_opts()
+    opts["socket_timeout"] = 15
+    opts["skip_download"] = True
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -164,14 +199,14 @@ def _download(job_id: str, url: str, format_id: str) -> None:
             if total:
                 _progress[job_id] = min(99, int(done * 100 / total))
 
-    opts = {
-        "quiet": True, "no_warnings": True, "noplaylist": True,
+    opts = _base_opts()
+    opts.update({
         "format": format_id, "merge_output_format": "mp4",
         "restrictfilenames": True, "nooverwrites": True,
         "max_filesize": MAX_FILESIZE, "socket_timeout": 20,
         "outtmpl": str(d / "%(title).80s [%(id)s].%(ext)s"),
         "progress_hooks": [hook],
-    }
+    })
     try:
         _progress[job_id] = 0
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -213,3 +248,66 @@ def job_result(job_id: str):
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Fichier expiré ou supprimé.")
     return FileResponse(path, filename=path.name)
+
+
+class CookiesIn(BaseModel):
+    action: Literal["status", "save", "delete"] = "status"
+    data: str = Field(default="", max_length=120_000)
+
+
+def _valid_netscape(txt: str) -> bool:
+    """Format Netscape cookies.txt : commentaires # ou lignes à 7 champs
+    contenant un domaine youtube/google."""
+    if len(txt.encode()) > MAX_COOKIES_BYTES:
+        return False
+    seen_domain = False
+    seen_cookie = False
+    for line in txt.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) != 7:
+            return False
+        if "youtube.com" in parts[0] or "google.com" in parts[0]:
+            seen_domain = True
+        seen_cookie = True
+    return seen_domain and seen_cookie
+
+
+@router.post("/cookies")
+def cookies(payload: CookiesIn):
+    """Gère le fichier cookies YouTube (compte JETABLE conseillé).
+    Stocké chmod 600, jamais affiché ni loggé. Sans cookies, les clients
+    anonymes (tv/web_safari) sont tentés ; avec cookies, web_safari/web
+    (jamais tv : invaliderait la session)."""
+    from .. import config
+
+    jobs.ensure_data_dir()
+    path = _cookie_path()
+    if payload.action == "status":
+        return {"configured": _cookies_configured()}
+    if payload.action == "delete":
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return {"configured": False}
+    # save
+    txt = payload.data.strip()[:120_000]
+    if not _valid_netscape(txt):
+        raise HTTPException(
+            status_code=400,
+            detail="Fichier invalide : export Netscape cookies.txt attendu "
+                   "(lignes à 7 champs avec domaine youtube.com ou google.com).",
+        )
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(txt, encoding="utf-8")
+    try:
+        tmp.chmod(0o600)
+        tmp.replace(path)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Écriture impossible.")
+    return {"configured": True}
