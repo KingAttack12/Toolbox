@@ -253,8 +253,18 @@ async function runYoutube(t){
       } else throw new Error(jj.error||"Échec du téléchargement.");
       break;
     }
-  }catch(e){ $("#toolError").textContent="❌ "+e.message; }
+  }catch(e){ showYtError(e.message); }
   finally{ $("#toolProgress").classList.add("hidden"); }
+}
+
+function showYtError(msg){
+  $("#toolError").textContent="❌ "+msg;
+  if(/bot|sign in|captcha/i.test(msg)){
+    const out=$("#toolOutput"); out.innerHTML="";
+    const d=document.createElement("div");
+    d.innerHTML=`<b>🤖 YouTube bloque l'IP du serveur (datacenter).</b><br><br><b>Méthode fiable :</b><ol><li>Crée un <b>compte Google jetable</b> (jamais ton compte principal).</li><li>Connecte-le sur youtube.com avec Firefox.</li><li>Exporte les cookies en format Netscape (extension « cookies.txt »).</li><li>Colle le contenu dans l'outil <b>🍪 Cookies YouTube → save</b>.</li><li>Relance le téléchargement.</li></ol>Docs officielles : <a href="https://github.com/yt-dlp/yt-dlp/wiki/FAQ" target="_blank" rel="noopener">FAQ cookies yt-dlp</a> • <a href="https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide" target="_blank" rel="noopener">Guide PO Token</a>`;
+    out.appendChild(d);
+  }
 }
 
 initTheme(); checkMe();

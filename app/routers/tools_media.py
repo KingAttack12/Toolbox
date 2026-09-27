@@ -106,7 +106,12 @@ def _extract(url: str) -> dict:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"URL inexploitable : {str(e)[:200]}")
+        msg = str(e)[:200]
+        if "not a bot" in msg.lower():
+            msg += (" — YouTube bloque les IP de serveurs. Méthode fiable : outil "
+                    "Cookies YouTube avec un compte JETABLE, puis réessayez. Doc : "
+                    "https://github.com/yt-dlp/yt-dlp/wiki/FAQ")
+        raise HTTPException(status_code=400, detail=f"URL inexploitable : {msg}")
     if not info or info.get("_type") == "playlist":
         raise HTTPException(status_code=400, detail="Playlists non supportées (une vidéo à la fois).")
     if info.get("is_live"):
