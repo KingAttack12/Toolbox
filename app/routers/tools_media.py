@@ -34,7 +34,7 @@ ALLOWED_HOSTS = {
 MAX_DURATION_S = 30 * 60
 MAX_FILESIZE = 500 * 1024 * 1024
 MAX_CONCURRENT = 2
-MAX_COOKIES_BYTES = 100 * 1024
+MAX_COOKIES_BYTES = 300 * 1024
 FORMAT_ID_RE = re.compile(r"^[\w+-]{1,40}$")
 
 # Clients essayés dans l'ordre (doc officielle yt-dlp) :
@@ -280,7 +280,7 @@ def job_result(job_id: str):
 
 class CookiesIn(BaseModel):
     action: Literal["status", "save", "delete"] = "status"
-    data: str = Field(default="", max_length=120_000)
+    data: str = Field(default="", max_length=350_000)
 
 
 def _valid_netscape(txt: str) -> bool:

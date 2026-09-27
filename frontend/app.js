@@ -185,11 +185,11 @@ $("#toolRun").onclick=async ()=>{
     const ctype=r.headers.get("Content-Type")||"";
     if(t.metaSwitch && ctype.includes("application/json")){
       const j=await r.json();
-      if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
+      if(!r.ok) throw new Error(errMsg(j,r));
       $("#toolOutput").textContent=fmt(j);
     }
     else if(t.blob){
-      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||("HTTP "+r.status)); }
+      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(errMsg(j,r)); }
       const blob=await r.blob();
       const url=URL.createObjectURL(blob);
       $("#toolOutput").textContent="✅ Fichier généré ("+(blob.size/1024).toFixed(1)+" Ko). Aperçu ci-dessous :";
@@ -203,7 +203,7 @@ $("#toolRun").onclick=async ()=>{
       $("#toolDownloadWrap").classList.remove("hidden");
     } else {
       const j=await r.json();
-      if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
+      if(!r.ok) throw new Error(errMsg(j,r));
       $("#toolOutput").textContent=fmt(j);
     }
     }
@@ -218,6 +218,13 @@ function fmt(j){
   return JSON.stringify(j,null,2);
 }
 
+function errMsg(j,r){
+  if(!j) return "HTTP "+r.status;
+  if(typeof j.detail==="string") return j.detail;
+  if(j.error && typeof j.error==="string") return j.error;
+  try{ return JSON.stringify(j.detail||j).slice(0,400); }catch(e){ return "HTTP "+r.status; }
+}
+
 async function runYoutube(t){
   $("#toolProgress").classList.remove("hidden");
   try{
@@ -230,7 +237,7 @@ async function runYoutube(t){
       $("#toolOutput").textContent="⏳ Analyse de la vidéo…";
       const r=await fetch("/api/tools/media/formats",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
       const j=await r.json();
-      if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
+      if(!r.ok) throw new Error(errMsg(j,r));
       if(!j.formats.length) throw new Error("Aucun format récupérable.");
       sel.innerHTML=j.formats.map(f=>`<option value="${f.id}">${f.resolution} • ${f.ext} • ${f.vcodec}/${f.acodec}${f.size_mo?" • "+f.size_mo+" Mo":""}</option>`).join("");
       sel.dataset.loaded="1";
@@ -241,7 +248,7 @@ async function runYoutube(t){
     $("#toolOutput").textContent="⏳ Téléchargement lancé…";
     const r2=await fetch(t.ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,format_id:fid,confirm_rights:true})});
     const j2=await r2.json();
-    if(!r2.ok) throw new Error(j2.detail||("HTTP "+r2.status));
+    if(!r2.ok) throw new Error(errMsg(j2,r2));
     for(let i=0;i<150;i++){
       await new Promise(res=>setTimeout(res,2000));
       const jj=await (await fetch("/api/tools/media/job/"+j2.job_id)).json();
