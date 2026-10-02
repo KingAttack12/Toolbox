@@ -166,6 +166,7 @@ class FetchIn(BaseModel):
     url: str = Field(max_length=500)
     format_id: str = Field(max_length=40)
     confirm_rights: bool = False
+    compat_h264: bool = False
 
 
 @router.post("/fetch")
@@ -186,13 +187,92 @@ def fetch(payload: FetchIn):
     job = jobs.create_job("youtube")
     jobs.update_job(job.id, status="processing")
     t = threading.Thread(
-        target=_download, args=(job.id, url, payload.format_id), daemon=True
+        target=_download,
+        args=(job.id, url, payload.format_id, payload.compat_h264, info.get("duration") or 0),
+        daemon=True,
     )
     t.start()
     return {"job_id": job.id}
 
 
-def _download(job_id: str, url: str, format_id: str) -> None:
+def _probe_codecs(ffmpeg: str, path: Path) -> tuple[str | None, str | None]:
+    """Lit les codecs via `ffmpeg -i` (stderr). Idée reprise de
+    youtube-downloader (Ayoub L.) : ne réencoder que si nécessaire."""
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            [ffmpeg, "-i", str(path)], timeout=60,
+            capture_output=True, text=True,
+        )
+        out = proc.stderr or ""
+    except Exception:
+        return None, None
+    import re as _re
+
+    v = _re.search(r"Stream #\d+:\d+[^\n]*Video:\s*([a-z0-9_]+)", out)
+    a = _re.search(r"Stream #\d+:\d+[^\n]*Audio:\s*([a-z0-9_]+)", out)
+    return (v.group(1) if v else None, a.group(1) if a else None)
+
+
+def _ensure_h264(ffmpeg: str, path: Path, duration_s: int, job_id: str) -> Path | None:
+    """Convertit en H264/AAC dans un .mp4 uniquement si besoin.
+    Retourne le nouveau fichier, ou None si inutile/échec (on garde l'original)."""
+    import re as _re
+    import subprocess
+
+    vcodec, acodec = _probe_codecs(ffmpeg, path)
+    if vcodec is None:
+        return None  # pas de vidéo (audio seul) ou illisible : on garde tel quel
+    if vcodec == "h264" and acodec in ("aac", None):
+        return None
+    v_args = ["-c:v", "copy"] if vcodec == "h264" else ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]
+    if acodec == "aac":
+        a_args = ["-c:a", "copy"]
+    elif acodec is None:
+        a_args = ["-an"]  # pas de piste audio : ne pas en inventer
+    else:
+        a_args = ["-c:a", "aac", "-b:a", "192k"]
+    # Sortie .mp4 (le conteneur d'origine peut être incompatible avec H264)
+    out = path.with_name(path.stem + ".h264.mp4")
+    total = max(int(duration_s), 1)
+    proc = subprocess.Popen(
+        [ffmpeg, "-y", "-v", "info", "-i", str(path), *v_args, *a_args,
+         "-movflags", "+faststart", str(out)],
+        stderr=subprocess.PIPE, text=True,
+    )
+    try:
+        assert proc.stderr is not None
+        for line in proc.stderr:
+            m = _re.search(r"time=(\d+):(\d+):([\d.]+)", line)
+            if m:
+                t = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+                _progress[job_id] = {"p": min(99, int(t * 100 / total)), "speed": "", "eta": "", "phase": "convert"}
+        proc.wait(timeout=min(1800, total * 4 + 120))
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        try:
+            out.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return None
+    if proc.returncode != 0 or not out.is_file() or out.stat().st_size == 0:
+        try:
+            out.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return None
+    try:
+        path.unlink(missing_ok=True)  # l'original est remplacé
+    except OSError:
+        pass
+    return out
+
+
+def _download(job_id: str, url: str, format_id: str, compat_h264: bool = False, duration_s: int = 0) -> None:
     global _active
     yt_dlp = _ytdlp()
     d = jobs.task_dir(job_id)
@@ -219,6 +299,7 @@ def _download(job_id: str, url: str, format_id: str) -> None:
                 "p": pct,
                 "speed": _fmt_speed(progress.get("speed")),
                 "eta": str(progress.get("eta") or ""),
+                "phase": "download",
             }
 
     opts = _base_opts()
@@ -231,15 +312,22 @@ def _download(job_id: str, url: str, format_id: str) -> None:
         "progress_hooks": [hook],
     })
     try:
-        _progress[job_id] = {"p": 0, "speed": "", "eta": ""}
+        _progress[job_id] = {"p": 0, "speed": "", "eta": "", "phase": "download"}
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         files = sorted(d.glob("*"), key=lambda p: p.stat().st_size, reverse=True)
         files = [p for p in files if p.is_file()]
         if not files:
             raise RuntimeError("Aucun fichier produit.")
-        jobs.update_job(job_id, status="completed", result_file=files[0].name)
-        _progress[job_id] = {"p": 100, "speed": "", "eta": ""}
+        target = files[0]
+        if (compat_h264 and duration_s and duration_s <= 600
+                and target.suffix.lower() in (".mp4", ".webm", ".mkv", ".mov")):
+            _progress[job_id] = {"p": 99, "speed": "", "eta": "", "phase": "convert"}
+            new_file = _ensure_h264(_ffmpeg_bin(), target, duration_s, job_id)
+            if new_file is not None:
+                target = new_file
+        jobs.update_job(job.id, status="completed", result_file=target.name)
+        _progress[job_id] = {"p": 100, "speed": "", "eta": "", "phase": "done"}
     except Exception as e:
         jobs.update_job(job_id, status="failed", error=str(e)[:300])
     finally:
@@ -253,14 +341,15 @@ def job_status(job_id: str):
     job = jobs.get_job(safe)
     if not job or job.type != "youtube":
         raise HTTPException(status_code=404, detail="Tâche inconnue.")
-    prog = _progress.get(safe, {"p": 0, "speed": "", "eta": ""})
+    prog = _progress.get(safe, {"p": 0, "speed": "", "eta": "", "phase": "download"})
     if isinstance(prog, int):  # compat ancien format
-        prog = {"p": prog, "speed": "", "eta": ""}
+        prog = {"p": prog, "speed": "", "eta": "", "phase": "download"}
     return {
         "status": job.status,
         "progress": prog.get("p", 0),
         "speed": prog.get("speed", ""),
         "eta": prog.get("eta", ""),
+        "phase": prog.get("phase", "download"),
         "error": job.error,
         "filename": job.result_file,
     }
