@@ -230,11 +230,14 @@ terms:{t:"Conditions d'utilisation",h:`<p>Ce site est un outil <b>strictement pe
 };
 document.querySelectorAll("[data-info]").forEach(b=>b.onclick=()=>{
   const k=b.dataset.info;
-  $("#infoTitle").textContent=INFOS[k].t;
-  $("#infoBody").innerHTML=INFOS[k].h;
-  $("#infoModal").classList.remove("hidden");
+  if(!INFOS[k]) return;
+  const t=$("#infoTitle"), body=$("#infoBody"), modal=$("#infoModal");
+  if(!t||!body||!modal) return;
+  t.textContent=INFOS[k].t;
+  body.innerHTML=INFOS[k].h;
+  modal.classList.remove("hidden");
 });
-$("#infoClose").onclick=()=>$("#infoModal").classList.add("hidden");
-$("#infoModal").addEventListener("click",(e)=>{ if(e.target.id==="infoModal") $("#infoModal").classList.add("hidden"); });
+if($("#infoClose")) $("#infoClose").onclick=()=>$("#infoModal").classList.add("hidden");
+if($("#infoModal")) $("#infoModal").addEventListener("click",(e)=>{ if(e.target.id==="infoModal") $("#infoModal").classList.add("hidden"); });
 
 initTheme(); checkMe();
