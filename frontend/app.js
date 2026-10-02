@@ -43,7 +43,6 @@ const TOOLS = [
   {id:"pdfmeta", cat:"pdf", icon:"🏷️", name:"Métadonnées PDF", desc:"Lire, ou nettoyer + télécharger.", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"},{k:"strip",label:"Supprimer les métadonnées (renvoie un PDF nettoyé)",type:"check",def:false}], ep:"/api/tools/pdf/metadata", blob:true, multipart:true, metaSwitch:true},
   {id:"pdfcompress", cat:"pdf", icon:"🗜️", name:"Compresser un PDF", desc:"Réenregistrement optimisé (gain variable).", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"}], ep:"/api/tools/pdf/compress", blob:true, multipart:true},
   // Média
-  // Média
   {id:"mp3", cat:"media", icon:"🎵", name:"MP4 → MP3", desc:"Extrait l'audio (128/192/320 kbps). Upload max ~50 Mo.", fields:[{k:"file",label:"Vidéo",type:"file",accept:"video/*"},{k:"bitrate",label:"Qualité",type:"select",opts:["128","192","320"],def:"192"}], ep:"/api/tools/media/mp4-to-mp3", blob:true, multipart:true},
   // Bientôt
   {id:"office", cat:"soon", icon:"📝", name:"Word/PDF + OCR (bientôt)", desc:"LibreOffice, Tesseract…", soon:true},
@@ -51,18 +50,21 @@ const TOOLS = [
 ];
 
 let currentTool = null;
-const favs = new Set(JSON.parse(localStorage.getItem("tb_favs")||"[]"));
-let recent = JSON.parse(localStorage.getItem("tb_recent")||"[]");
+function storeGet(k, fb){ try{ const v=localStorage.getItem(k); return v==null?fb:JSON.parse(v); }catch(e){ return fb; } }
+function storeSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+const favs = new Set(storeGet("tb_favs",[]));
+let recent = storeGet("tb_recent",[]);
 
 /* ---------- thème ---------- */
 function initTheme(){
-  const t = localStorage.getItem("tb_theme") || "light";
+  let t; try{ t=localStorage.getItem("tb_theme"); }catch(e){ t=null; }
+  t=t||"light";
   document.documentElement.dataset.theme = t;
   $("#themeBtn").textContent = t==="dark"?"☀️":"🌙";
 }
 $("#themeBtn").onclick = ()=>{
   const t = document.documentElement.dataset.theme==="dark"?"light":"dark";
-  document.documentElement.dataset.theme=t; localStorage.setItem("tb_theme",t);
+  document.documentElement.dataset.theme=t; try{localStorage.setItem("tb_theme",t);}catch(e){}
   $("#themeBtn").textContent = t==="dark"?"☀️":"🌙";
 };
 
@@ -117,7 +119,7 @@ function renderGrid(cat,q){
       grid.appendChild(btn);
     });
 }
-function toggleFav(id){ favs.has(id)?favs.delete(id):favs.add(id); localStorage.setItem("tb_favs",JSON.stringify([...favs])); renderGrid(curCat,$("#search").value); }
+function toggleFav(id){ favs.has(id)?favs.delete(id):favs.add(id); storeSet("tb_favs",[...favs]); renderGrid(curCat,$("#search").value); }
 function renderRecent(){ $("#recentLine").textContent = recent.length? "🕘 Récents : "+recent.map(id=>{const t=TOOLS.find(x=>x.id===id);return t?t.name:id;}).join(" • ") : ""; }
 
 /* ---------- modal outil ---------- */
@@ -205,7 +207,7 @@ $("#toolRun").onclick=async ()=>{
       $("#toolOutput").textContent=fmt(j);
     }
     recent=[t.id,...recent.filter(x=>x!==t.id)].slice(0,5);
-    localStorage.setItem("tb_recent",JSON.stringify(recent)); renderRecent();
+    storeSet("tb_recent",recent); renderRecent();
   }catch(e){ $("#toolError").textContent="❌ "+e.message; }
   finally{ $("#toolProgress").classList.add("hidden"); }
 };
