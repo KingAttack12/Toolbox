@@ -31,7 +31,7 @@ const TOOLS = [
   {id:"motif", cat:"bio", icon:"🔍", name:"Recherche de motifs", desc:"Positions 1-indexed.", fields:[{k:"sequence",label:"Séquence",type:"textarea"},{k:"motif",label:"Motif",type:"text"}], ep:"/api/tools/bio/motif"},
   {id:"fasta", cat:"bio", icon:"📄", name:"FASTA stats", desc:"Nb séquences, longueurs, GC.", fields:[{k:"fasta",label:"FASTA ou séquence brute",type:"textarea"}], ep:"/api/tools/bio/fasta-stats"},
   // QR
-  {id:"qr", cat:"qr", icon:"🔳", name:"Générateur QR code", desc:"QR local → PNG.", fields:[{k:"text",label:"Texte / URL",type:"textarea"},{k:"size",label:"Taille case (4-20)",type:"number",def:10}], ep:"/api/tools/qr/generate", blob:true},
+  {id:"qr", cat:"qr", icon:"🔲", name:"Générateur QR code", desc:"QR local → PNG.", fields:[{k:"text",label:"Texte / URL",type:"textarea"},{k:"size",label:"Taille case (4-20)",type:"number",def:10}], ep:"/api/tools/qr/generate", blob:true},
   // Images
   {id:"imgconv", cat:"img", icon:"🖼️", name:"Convertisseur d'image", desc:"JPG/PNG/WebP + resize, rotation, miroir, N&B.", fields:[{k:"file",label:"Image (max 20 Mo)",type:"file"},{k:"format",label:"Format de sortie",type:"select",opts:["jpg","png","webp"],def:"jpg"},{k:"quality",label:"Qualité JPG/WebP (10-100)",type:"number",def:85},{k:"resize_max",label:"Redimensionner (plus grand côté px, 0 = inchangé)",type:"number",def:0},{k:"rotate",label:"Rotation",type:"select",opts:["0","90","180","270"]},{k:"flip",label:"Miroir",type:"select",opts:["none","horizontal","vertical"]},{k:"grayscale",label:"Noir & blanc",type:"check",def:false},{k:"strip_exif",label:"Supprimer métadonnées EXIF",type:"check",def:true}], ep:"/api/tools/image/convert", blob:true, multipart:true},
   // Documents PDF
@@ -111,7 +111,7 @@ function renderGrid(cat,q){
       btn.innerHTML=`<span class="fav">${favs.has(t.id)?"★":"☆"}</span><div style="font-size:1.5rem">${t.icon}</div><h4>${t.name}</h4><p>${t.desc}</p>`;
       btn.onclick=(ev)=>{
         if(ev.target.classList.contains("fav")){ toggleFav(t.id); ev.stopPropagation(); return; }
-        if(t.soon){ alert("Prévu dans une phase suivante (PDF/Images/Média/IA)."); return; }
+        if(t.soon){ alert("Prévu dans une phase suivante."); return; }
         openTool(t);
       };
       grid.appendChild(btn);
