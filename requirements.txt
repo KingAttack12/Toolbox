@@ -5,4 +5,4 @@ qrcode[pil]==8.2
 Pillow==11.3.0
 pypdf>=5
 PyMuPDF>=1.24
-yt-dlp>=2024
+imageio-ffmpeg>=0.5

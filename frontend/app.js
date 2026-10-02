@@ -43,8 +43,7 @@ const TOOLS = [
   {id:"pdfmeta", cat:"pdf", icon:"🏷️", name:"Métadonnées PDF", desc:"Lire, ou nettoyer + télécharger.", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"},{k:"strip",label:"Supprimer les métadonnées (renvoie un PDF nettoyé)",type:"check",def:false}], ep:"/api/tools/pdf/metadata", blob:true, multipart:true, metaSwitch:true},
   {id:"pdfcompress", cat:"pdf", icon:"🗜️", name:"Compresser un PDF", desc:"Réenregistrement optimisé (gain variable).", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"}], ep:"/api/tools/pdf/compress", blob:true, multipart:true},
   // Média
-  {id:"yt", cat:"media", icon:"📥", name:"YouTube (contenus autorisés)", desc:"Formats puis téléchargement. Max 30 min.", fields:[{k:"url",label:"URL YouTube",type:"text"},{k:"confirm_rights",label:"Je confirme avoir le droit de télécharger ce contenu",type:"check",def:false},{k:"format_id",label:"Format (cliquez Exécuter pour lister)",type:"select",opts:["—"]},{k:"compat_h264",label:"Convertir en H264/AAC si besoin (montage, vidéos ≤10 min)",type:"check",def:false}], ep:"/api/tools/media/fetch", youtube:true, hint:"Si YouTube répond 'not a bot' : utilisez l'outil Cookies YouTube (compte jetable) puis réessayez."},
-  {id:"ytcookies", cat:"media", icon:"🍪", name:"Cookies YouTube", desc:"Anti-bot : compte JETABLE uniquement. status/save/delete.", fields:[{k:"action",label:"Action",type:"select",opts:["status","save","delete"]},{k:"data",label:"Contenu cookies.txt (Netscape, pour save)",type:"textarea"}], ep:"/api/tools/media/cookies"},
+  // Média
   {id:"mp3", cat:"media", icon:"🎵", name:"MP4 → MP3", desc:"Extrait l'audio (128/192/320 kbps). Upload max ~50 Mo.", fields:[{k:"file",label:"Vidéo",type:"file",accept:"video/*"},{k:"bitrate",label:"Qualité",type:"select",opts:["128","192","320"],def:"192"}], ep:"/api/tools/media/mp4-to-mp3", blob:true, multipart:true},
   // Bientôt
   {id:"office", cat:"soon", icon:"📝", name:"Word/PDF + OCR (bientôt)", desc:"LibreOffice, Tesseract…", soon:true},
@@ -171,8 +170,6 @@ $("#toolRun").onclick=async ()=>{
   try{ payload=collectPayload(t); }catch(e){ $("#toolError").textContent=e.message; return; }
   $("#toolProgress").classList.remove("hidden");
   try{
-    if(t.youtube){ await runYoutube(t); }
-    else{
     let opts;
     if(t.multipart){
       const fd=new FormData();
@@ -207,7 +204,6 @@ $("#toolRun").onclick=async ()=>{
       if(!r.ok) throw new Error(errMsg(j,r));
       $("#toolOutput").textContent=fmt(j);
     }
-    }
     recent=[t.id,...recent.filter(x=>x!==t.id)].slice(0,5);
     localStorage.setItem("tb_recent",JSON.stringify(recent)); renderRecent();
   }catch(e){ $("#toolError").textContent="❌ "+e.message; }
@@ -224,61 +220,6 @@ function errMsg(j,r){
   if(typeof j.detail==="string") return j.detail;
   if(j.error && typeof j.error==="string") return j.error;
   try{ return JSON.stringify(j.detail||j).slice(0,400); }catch(e){ return "HTTP "+r.status; }
-}
-
-async function runYoutube(t){
-  $("#toolProgress").classList.remove("hidden");
-  try{
-    const url=document.querySelector('[data-k="url"]').value.trim();
-    const confirm=document.querySelector('[data-k="confirm_rights"]').checked;
-    const sel=document.querySelector('[data-k="format_id"]');
-    if(!url) throw new Error("Collez une URL YouTube.");
-    if(!confirm) throw new Error("Cochez la confirmation de droits.");
-    if(!sel.dataset.loaded){
-      $("#toolOutput").textContent="⏳ Analyse de la vidéo…";
-      const r=await fetch("/api/tools/media/formats",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
-      const j=await r.json();
-      if(!r.ok) throw new Error(errMsg(j,r));
-      if(!j.formats.length) throw new Error("Aucun format récupérable.");
-      sel.innerHTML=j.formats.map(f=>`<option value="${f.id}">${f.resolution} • ${f.ext} • ${f.vcodec}/${f.acodec}${f.size_mo?" • "+f.size_mo+" Mo":""}</option>`).join("");
-      sel.dataset.loaded="1";
-      $("#toolOutput").textContent=`🎬 ${j.title} (${Math.round((j.duration_s||0)/60)} min)\nChoisissez un format puis cliquez Exécuter.`;
-      return;
-    }
-    const fid=sel.value;
-    const compat=document.querySelector('[data-k="compat_h264"]').checked;
-    $("#toolOutput").textContent="⏳ Téléchargement lancé…";
-    const r2=await fetch(t.ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,format_id:fid,confirm_rights:true,compat_h264:compat})});
-    const j2=await r2.json();
-    if(!r2.ok) throw new Error(errMsg(j2,r2));
-    for(let i=0;i<150;i++){
-      await new Promise(res=>setTimeout(res,2000));
-      const jj=await (await fetch("/api/tools/media/job/"+j2.job_id)).json();
-      if(jj.status==="processing"||jj.status==="queued"){
-        $("#toolOutput").textContent = jj.phase==="convert"
-          ? `🎬 Conversion H264/AAC… ${jj.progress}%`
-          : `⏳ Téléchargement… ${jj.progress}%${jj.speed?" • "+jj.speed:""}${jj.eta?" • ETA "+jj.eta+"s":""}`;
-        continue;
-      }
-      if(jj.status==="completed"){
-        $("#toolOutput").textContent=`✅ Terminé : ${jj.filename}`;
-        const a=$("#toolDownload"); a.href="/api/tools/media/result/"+j2.job_id; a.download=jj.filename||"video.mp4";
-        $("#toolDownloadWrap").classList.remove("hidden");
-      } else throw new Error(jj.error||"Échec du téléchargement.");
-      break;
-    }
-  }catch(e){ showYtError(e.message); }
-  finally{ $("#toolProgress").classList.add("hidden"); }
-}
-
-function showYtError(msg){
-  $("#toolError").textContent="❌ "+msg;
-  if(/bot|sign in|captcha/i.test(msg)){
-    const out=$("#toolOutput"); out.innerHTML="";
-    const d=document.createElement("div");
-    d.innerHTML=`<b>🤖 YouTube bloque l'IP du serveur (datacenter).</b><br><br><b>Méthode fiable :</b><ol><li>Crée un <b>compte Google jetable</b> (jamais ton compte principal).</li><li>Connecte-le sur youtube.com avec Firefox.</li><li>Exporte les cookies en format Netscape (extension « cookies.txt »).</li><li>Colle le contenu dans l'outil <b>🍪 Cookies YouTube → save</b>.</li><li>Relance le téléchargement.</li></ol>Docs officielles : <a href="https://github.com/yt-dlp/yt-dlp/wiki/FAQ" target="_blank" rel="noopener">FAQ cookies yt-dlp</a> • <a href="https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide" target="_blank" rel="noopener">Guide PO Token</a>`;
-    out.appendChild(d);
-  }
 }
 
 initTheme(); checkMe();
