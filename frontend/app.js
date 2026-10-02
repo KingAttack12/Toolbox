@@ -45,6 +45,7 @@ const TOOLS = [
   // Média
   {id:"yt", cat:"media", icon:"📥", name:"YouTube (contenus autorisés)", desc:"Formats puis téléchargement. Max 30 min.", fields:[{k:"url",label:"URL YouTube",type:"text"},{k:"confirm_rights",label:"Je confirme avoir le droit de télécharger ce contenu",type:"check",def:false},{k:"format_id",label:"Format (cliquez Exécuter pour lister)",type:"select",opts:["—"]}], ep:"/api/tools/media/fetch", youtube:true, hint:"Si YouTube répond 'not a bot' : utilisez l'outil Cookies YouTube (compte jetable) puis réessayez."},
   {id:"ytcookies", cat:"media", icon:"🍪", name:"Cookies YouTube", desc:"Anti-bot : compte JETABLE uniquement. status/save/delete.", fields:[{k:"action",label:"Action",type:"select",opts:["status","save","delete"]},{k:"data",label:"Contenu cookies.txt (Netscape, pour save)",type:"textarea"}], ep:"/api/tools/media/cookies"},
+  {id:"mp3", cat:"media", icon:"🎵", name:"MP4 → MP3", desc:"Extrait l'audio (128/192/320 kbps). Upload max ~50 Mo.", fields:[{k:"file",label:"Vidéo",type:"file",accept:"video/*"},{k:"bitrate",label:"Qualité",type:"select",opts:["128","192","320"],def:"192"}], ep:"/api/tools/media/mp4-to-mp3", blob:true, multipart:true},
   // Bientôt
   {id:"office", cat:"soon", icon:"📝", name:"Word/PDF + OCR (bientôt)", desc:"LibreOffice, Tesseract…", soon:true},
   {id:"ai", cat:"soon", icon:"🤖", name:"IA (Phase 6, optionnel)", desc:"Résumé, QCM… désactivé.", soon:true},
