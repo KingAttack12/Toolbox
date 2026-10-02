@@ -222,22 +222,4 @@ function errMsg(j,r){
   try{ return JSON.stringify(j.detail||j).slice(0,400); }catch(e){ return "HTTP "+r.status; }
 }
 
-/* ---------- pages d'info (footer) ---------- */
-const INFOS={
-about:{t:"À propos",h:`<p><b>Toolbox</b> est une boîte à outils web personnelle : convertir, calculer, analyser, sans pub, sans compte à créer ailleurs, sans données revendues. Elle tourne sur un petit serveur Oracle Cloud gratuit, avec des logiciels libres uniquement.</p><p>Le code est ouvert : <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">KingAttack12/Toolbox sur GitHub</a>. Utilisation et modification libres pour un usage personnel non commercial.</p><h4>Ce que fait ce site</h4><ul><li>Outils texte, calculatrices, bioinfo, images, PDF, audio — exécutés sur le serveur.</li><li>Login privé, rate limit, HTTPS. Aucune IA obligatoire, aucune API externe imposée.</li></ul>`},
-privacy:{t:"Confidentialité",h:`<p>Vos fichiers sont traités <b>en mémoire sur le serveur</b> puis oubliés : ils ne sont ni conservés, ni envoyés à un tiers.</p><h4>Données conservées</h4><ul><li><b>Rien de vos contenus.</b> Les logs serveur ne gardent que des métadonnées (IP, date, page appelée, taille) pour la sécurité.</li><li><b>Votre navigateur</b> garde vos favoris et vos derniers outils (stockage local, effaçable à tout moment).</li><li><b>Cookie de session</b> : un seul, HttpOnly, 12 h, supprimé à la déconnexion.</li></ul><h4>Vos droits</h4><p>Demande de suppression ou question : via le dépôt GitHub. Pas de revente, pas de publicité, pas de traçage.</p>`},
-terms:{t:"Conditions d'utilisation",h:`<p>Ce site est un outil <b>strictement personnel</b>.</p><ul><li>Usage privé uniquement : ne l'utilisez pas pour traiter des contenus illégaux ou portant atteinte aux droits d'autrui.</li><li>Ne tentez pas de contourner le login, la limitation de requêtes ou d'uploader des contenus malveillants : les IP insistantes sont bannies automatiquement.</li><li>Service fourni « tel quel », sans garantie de disponibilité. Les fichiers temporaires sont supprimés automatiquement (2 h max).</li><li>Limites : textes 500 000 caractères, images 20 Mo, autres fichiers 50 Mo.</li></ul>`}
-};
-document.querySelectorAll("[data-info]").forEach(b=>b.onclick=()=>{
-  const k=b.dataset.info;
-  if(!INFOS[k]) return;
-  const t=$("#infoTitle"), body=$("#infoBody"), modal=$("#infoModal");
-  if(!t||!body||!modal) return;
-  t.textContent=INFOS[k].t;
-  body.innerHTML=INFOS[k].h;
-  modal.classList.remove("hidden");
-});
-if($("#infoClose")) $("#infoClose").onclick=()=>$("#infoModal").classList.add("hidden");
-if($("#infoModal")) $("#infoModal").addEventListener("click",(e)=>{ if(e.target.id==="infoModal") $("#infoModal").classList.add("hidden"); });
-
 initTheme(); checkMe();
