@@ -25,4 +25,7 @@ button{cursor:pointer}.primary,button[type=submit]{background:var(--acc);color:#
 .output{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;word-break:break-word;min-height:60px;margin-top:10px;max-height:320px;overflow:auto}
 .progress{height:8px;background:var(--line);border-radius:99px;margin-top:10px;overflow:hidden}.progress div{height:100%;width:40%;background:var(--acc);animation:slide 1s infinite linear}@keyframes slide{from{margin-left:-40%}to{margin-left:100%}}
 .field{margin:8px 0}.field label{margin:0}
+.footer{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;padding:18px 16px 28px;color:var(--muted);font-size:.85rem}.footer a{color:var(--acc)}
+.linklike{background:none;border:none;color:var(--acc);font-size:.85rem;padding:0;text-decoration:underline;cursor:pointer}
+.info-body{line-height:1.55;font-size:.93rem}.info-body h4{margin:1em 0 .3em}.info-body p,.info-body li{margin:.3em 0}.info-body ul{padding-left:1.2em}
 @media(max-width:600px){.brand .sub{display:none}.grid{grid-template-columns:1fr 1fr}}

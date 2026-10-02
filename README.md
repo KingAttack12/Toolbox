@@ -1,73 +1,88 @@
-# 🛠 Toolbox privée — Phase 1+2
+# Toolbox — tous tes outils au même endroit
 
-Base FastAPI + frontend vanilla + auth + outils simples **100 % locaux** (aucune API externe, IA désactivée).
+Une boîte à outils web personnelle, hébergée sur un serveur Oracle Cloud gratuit,
+sans pub, sans compte à créer, sans données revendues. Tu l'installes, c'est à toi.
 
-## Contenu
+Le projet est né d'un besoin simple : arrêter de disperser ses fichiers sur dix
+sites douteux pour convertir un PDF, compresser une image ou calculer une moyenne.
+Ici tout tourne **sur ton propre serveur**, en local : aucun fichier n'est envoyé
+à un service tiers.
 
-- `app/` : FastAPI modulaire (`routers/tools_*.py` = 1 fichier par catégorie, facile à étendre)
-- `frontend/` : HTML/CSS/JS responsive, recherche, favoris, mode sombre, login
-- `deploy/` : scripts Oracle Cloud (Nginx + systemd, sans Docker pour rester léger)
-- `generate_password.py` : hash PBKDF2 du mot de passe admin
-- `GUIDE_VM_ORACLE.md` : création de la VM Always Free + déploiement pas à pas
+## Ce qu'il y a dedans
 
-## ⚠️ Avant d'installer (autorisation demandée)
+**Texte & code** — compteur de mots, nettoyeur, majuscules/minuscules, Base64,
+SHA-256/512, UUID, générateur de mots de passe, JSON format/validate, XML, diff, CSV.
 
-Sur **ton PC** (test local), je vais devoir lancer :
+**Calculatrices** — scientifique, pourcentages, TVA, unités, température, dates,
+moyenne pondérée avec mention.
+
+**Bioinfo** — GC%, transcription ADN→ARN, traduction →protéine, motifs, stats FASTA.
+
+**Images** — conversion JPG/PNG/WebP, redimensionnement, rotation, miroir,
+noir & blanc, suppression EXIF, QR codes.
+
+**Documents PDF** — fusion, extraction de pages, rotation, PDF↔images,
+métadonnées (lecture + nettoyage), compression.
+
+**Média** — conversion MP4→MP3.
+
+Interface en français, utilisable sur téléphone, recherche intégrée, favoris,
+mode sombre. Les outils lourds à venir (Word, OCR) sont affichés grisés.
+
+## Technique, en bref
+
+- Backend **Python / FastAPI**, frontend **HTML/CSS/JS** sans framework.
+- Un fichier par famille d'outils (`app/routers/tools_*.py`) : ajouter un outil
+  = ajouter une fonction + une entrée dans le catalogue JS.
+- Auth par login (PBKDF2 + sessions HttpOnly), rate limit anti brute-force,
+  fail2ban côté serveur, HTTPS Let's Encrypt via Nginx.
+- Dépendances gratuites/open source uniquement : voir `requirements.txt`.
+- Pas d'IA obligatoire : le code prévoit un crochet optionnel (`AI_API_KEY`
+  vide = désactivée), aucun appel externe sans ça.
+
+## L'essayer en 5 minutes (sur ton PC)
+
+Prérequis : Python 3.12+.
 
 ```powershell
+cd toolbox
 pip install -r requirements.txt
-```
-
-Dépendances (toutes gratuites/open source) :
-| Paquet | Licence | Pourquoi |
-|---|---|---|
-| fastapi | MIT | Backend API |
-| uvicorn[standard] | BSD | Serveur ASGI |
-| python-multipart | Apache-2.0 | Formulaires/fichiers (phases suivantes) |
-| qrcode[pil] | BSD | QR codes locaux |
-| Pillow | HPND (open source) | Images PNG du QR (+ Phase 4) |
-
-Rien d'autre : pas de Docker sur ton PC (absent de toute façon), pas de service payant, pas d'API externe.
-
-## Lancer en local (après `pip install`)
-
-```powershell
-cd "C:\Users\lyesa\Desktop\Site web utile\toolbox"
 Copy-Item .env.example .env
 python generate_password.py
-# → colle la ligne TOOLBOX_PASSWORD_HASH=... dans .env
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-# → ouvre http://127.0.0.1:8000 (login admin + mot de passe choisi)
+# colle la ligne TOOLBOX_PASSWORD_HASH=... affichée dans le fichier .env
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# ouvre http://127.0.0.1:8000, connecte-toi avec admin + ton mot de passe
 ```
 
-## Outils inclus (Phase 2)
+Ne commite jamais ton `.env` (il est déjà dans le `.gitignore`).
 
-Texte/dev : compteur, nettoyeur, casse, base64, SHA-256/512, UUID, mots de passe (`secrets`), JSON format/validate, XML format, diff, CSV preview.
-Calculatrices : scientifique (AST sûr), %, TVA, unités (longueur/masse/volume/vitesse/stockage), température, dates, moyenne pondérée + mention.
-Bioinfo : GC%, transcription, traduction, motifs, FASTA stats.
-QR : générateur PNG local.
-Stubs grisés : PDF (Ph.3), Images (Ph.4), Média/yt-dlp (Ph.5), IA (Ph.6, `AI_API_KEY` vide = désactivée).
+## L'héberger gratis (Oracle Cloud Free Tier)
 
-## Sécurité (conforme cahier des charges §5/§15)
+Le guide pas à pas est dans [`GUIDE_VM_ORACLE.md`](GUIDE_VM_ORACLE.md) :
+création de la VM gratuite, réseau, `oracle-setup.sh` (Nginx + systemd + fail2ban),
+nom de domaine + HTTPS. Compter une grosse demi-heure la première fois,
+dont la moitié d'attente Oracle.
 
-- Login obligatoire (cookie HttpOnly, sessions 12h, PBKDF2 200k itérations).
-- Secrets uniquement en `.env` (jamais dans le code/frontend) ; `.env` à ne jamais commiter.
-- Limites : textes ≤ 500k caractères, QR ≤ 2000 caractères, uploads ≤ 50 Mo (Nginx 55m).
-- Pas de `shell=True` / pas de commande construite depuis l'utilisateur (aucun subprocess en Phase 2).
-- Évaluateur calculatrice via AST (pas d'`eval` libre) ; séquences bio validées par regex.
-- Fichiers temporaires : `data/tmp/<job_id>/` + thread de nettoyage TTL 2h (`app/jobs.py`).
-- Logs sans secrets.
+Dossier [`deploy/`](deploy/) : tout ce qu'il faut
+(`nginx-toolbox*.conf`, `toolbox.service`, `oracle-setup.sh`, `backup-toolbox.sh`).
 
-## Déploiement Oracle (résumé)
+## Confidentialité
 
-1. Crée la VM (voir `GUIDE_VM_ORACLE.md`).
-2. Dépose le code (`scp` ou `git`), puis en SSH : `sudo bash deploy/oracle-setup.sh`.
-3. Sur la VM : `cp .env.example .env && python3 generate_password.py` → renseigne le hash.
-4. Ouvre `http://<IP_PUBLIQUE>/`.
+- Tes fichiers sont traités **en mémoire sur ton serveur** puis oubliés :
+  rien n'est conservé, rien n'est envoyé ailleurs.
+- Les logs serveur ne contiennent que des métadonnées (IP, date, endpoint),
+  jamais le contenu de tes fichiers.
+- Le navigateur garde seulement tes favoris et tes derniers outils utilisés.
+- Détails dans la page « Confidentialité » du site.
 
-## Étapes suivantes
+## Feuille de route (idées, pas des promesses)
 
-- Phase 3 : PDF (pypdf/PyMuPDF + LibreOffice/Ghostscript/Tesseract — à valider un par un).
-- Phase 4 : Pillow (déjà installé) → conversions, resize, EXIF.
-- Phase 5 : FFmpeg + yt-dlp (binaires système, commandes `subprocess` en liste d'args).
-- Phase 6 : IA uniquement si tu fournis une clé à quota gratuit vérifié.
+- Word ↔ PDF, OCR français, compression PDF forte.
+- Historique de conversions avec re-téléchargement.
+- Petits outils 100 % navigateur (zéro transit) pour les données sensibles.
+
+## Licence et contributation
+
+Projet personnel ouvert : utilisation et modification libres pour un usage
+personnel non commercial. Les dépendances citées dans `requirements.txt`
+restent sous leurs licences respectives (MIT, BSD, Apache-2.0, HPND...).
