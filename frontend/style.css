@@ -28,4 +28,5 @@ button{cursor:pointer}.primary,button[type=submit]{background:var(--acc);color:#
 .footer{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;padding:18px 16px 28px;color:var(--muted);font-size:.85rem}.footer a{color:var(--acc)}
 .linklike{background:none;border:none;color:var(--acc);font-size:.85rem;padding:0;text-decoration:underline;cursor:pointer}
 .info-body{line-height:1.55;font-size:.93rem}.info-body h4{margin:1em 0 .3em}.info-body p,.info-body li{margin:.3em 0}.info-body ul{padding-left:1.2em}
+.anime-card{display:flex;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px}.anime-card img{width:90px;height:130px;object-fit:cover;border-radius:8px}.anime-card h4{margin:.1em 0}.anime-card p{margin:.3em 0;font-size:.86rem}.anime-card a{color:var(--acc)}
 @media(max-width:600px){.brand .sub{display:none}.grid{grid-template-columns:1fr 1fr}}

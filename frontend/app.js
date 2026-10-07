@@ -44,6 +44,9 @@ const TOOLS = [
   {id:"pdfcompress", cat:"pdf", icon:"🗜️", name:"Compresser un PDF", desc:"Réenregistrement optimisé (gain variable).", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"}], ep:"/api/tools/pdf/compress", blob:true, multipart:true},
   // Média
   {id:"mp3", cat:"media", icon:"🎵", name:"MP4 → MP3", desc:"Extrait l'audio (128/192/320 kbps). Upload max ~50 Mo.", fields:[{k:"file",label:"Vidéo",type:"file",accept:"video/*"},{k:"bitrate",label:"Qualité",type:"select",opts:["128","192","320"],def:"192"}], ep:"/api/tools/media/mp4-to-mp3", blob:true, multipart:true},
+  // Manga / Animé (100 % légal)
+  {id:"anime", cat:"anime", icon:"🎌", name:"Chercher un animé / manga", desc:"Fiche + où regarder légalement (AniList).", fields:[{k:"query",label:"Titre (ex : Frieren)",type:"text"},{k:"type",label:"Type",type:"select",opts:["anime","manga"]}], ep:"/api/tools/anime/search", custom:"anime"},
+  {id:"legal", cat:"anime", icon:"📚", name:"Plateformes légales gratuites", desc:"MangaPlus, ADN, Slash…", fields:[], ep:"/api/tools/anime/legal", method:"GET"},
   // Bientôt
   {id:"office", cat:"soon", icon:"📝", name:"Word/PDF + OCR (bientôt)", desc:"LibreOffice, Tesseract…", soon:true},
   {id:"ai", cat:"soon", icon:"🤖", name:"IA (Phase 6, optionnel)", desc:"Résumé, QCM… désactivé.", soon:true},
@@ -173,7 +176,14 @@ $("#toolRun").onclick=async ()=>{
   $("#toolProgress").classList.remove("hidden");
   try{
     let opts;
-    if(t.multipart){
+    if(t.method==="GET"){
+      const r=await fetch(t.ep);
+      const j=await r.json();
+      if(!r.ok) throw new Error(errMsg(j,r));
+      $("#toolOutput").textContent=fmtLegal(j);
+    }
+    else if(t.custom==="anime"){ await runAnime(t,payload); }
+    else if(t.multipart){
       const fd=new FormData();
       for(const [k,v] of Object.entries(payload)){
         if(Array.isArray(v)) v.forEach(f=>fd.append(k,f));
@@ -216,6 +226,25 @@ function fmt(j){
   if(j.result!==undefined) return typeof j.result==="string"?j.result:JSON.stringify(j.result,null,2);
   return JSON.stringify(j,null,2);
 }
+
+function fmtLegal(j){
+  return (j.platforms||[]).map(p=>`• ${p.name} (${p.type}) — ${p.note}\n  ${p.url}`).join("\n\n");
+}
+
+async function runAnime(t,payload){
+  const r=await fetch(t.ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const j=await r.json();
+  if(!r.ok) throw new Error(errMsg(j,r));
+  const out=$("#toolOutput"); out.innerHTML="";
+  (j.results||[]).forEach(m=>{
+    const d=document.createElement("div"); d.className="anime-card";
+    const links=(m.streaming||[]).map(s=>`<a href="${s.url}" target="_blank" rel="noopener">${esc(s.site)}</a>`).join(" • ")||"<span class='muted'>voir fiche AniList</span>";
+    d.innerHTML=`${m.cover?`<img src="${m.cover}" alt="" loading="lazy">`:""}<div><h4>${esc(m.title)}${m.score?" ★"+m.score+"/10":""}</h4><p class="muted">${esc(m.format)} • ${esc(String(m.episodes))} ép/chap • ${esc(String(m.year))} • <a href="${m.anilist}" target="_blank" rel="noopener">AniList</a></p><p>${esc(m.desc)}</p><p>▶ ${links}</p></div>`;
+    out.appendChild(d);
+  });
+}
+
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 function errMsg(j,r){
   if(!j) return "HTTP "+r.status;
