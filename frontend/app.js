@@ -238,8 +238,10 @@ async function runAnime(t,payload){
   const out=$("#toolOutput"); out.innerHTML="";
   (j.results||[]).forEach(m=>{
     const d=document.createElement("div"); d.className="anime-card";
-    const links=(m.streaming||[]).map(s=>`<a href="${s.url}" target="_blank" rel="noopener">${esc(s.site)}</a>`).join(" • ")||"<span class='muted'>voir fiche AniList</span>";
-    d.innerHTML=`${m.cover?`<img src="${m.cover}" alt="" loading="lazy">`:""}<div><h4>${esc(m.title)}${m.score?" ★"+m.score+"/10":""}</h4><p class="muted">${esc(m.format)} • ${esc(String(m.episodes))} ép/chap • ${esc(String(m.year))} • <a href="${m.anilist}" target="_blank" rel="noopener">AniList</a></p><p>${esc(m.desc)}</p><p>▶ ${links}</p></div>`;
+    const score=m.score??null;
+    const pill=score==null?"":`<span class="anime-score ${score>=8?"hi":score>=6?"mid":"lo"}>★ ${score}/10</span>`;
+    const links=(m.streaming||[]).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.site)}</a>`).join("")||"";
+    d.innerHTML=`${m.cover?`<img src="${esc(m.cover)}" alt="" loading="lazy">`:""}<div class="anime-body"><div class="anime-top"><h4>${esc(m.title)}</h4>${pill}</div><p class="anime-meta">${esc(m.format)} • ${esc(String(m.episodes))} ép/chap • ${esc(String(m.year))}</p><p class="anime-desc">${esc(m.desc)}</p><div class="anime-links">${links}<a class="ghost" href="${esc(m.anilist)}" target="_blank" rel="noopener">Fiche AniList</a></div></div>`;
     out.appendChild(d);
   });
 }
