@@ -180,7 +180,7 @@ $("#toolRun").onclick=async ()=>{
       const r=await fetch(t.ep);
       const j=await r.json();
       if(!r.ok) throw new Error(errMsg(j,r));
-      $("#toolOutput").textContent=fmtLegal(j);
+      fmtLegal(j);
     }
     else if(t.custom==="anime"){ await runAnime(t,payload); }
     else if(t.multipart){
@@ -228,7 +228,13 @@ function fmt(j){
 }
 
 function fmtLegal(j){
-  return (j.platforms||[]).map(p=>`• ${p.name} (${p.type}) — ${p.note}\n  ${p.url}`).join("\n\n");
+  const out=$("#toolOutput"); out.innerHTML="";
+  (j.platforms||[]).forEach(p=>{
+    const d=document.createElement("div"); d.className="anime-card";
+    d.innerHTML=`<h4>${esc(p.name)} <span class="anime-meta">${esc(p.type)}</span></h4><p class="anime-desc">${esc(p.note)}</p><div class="anime-links"><a href="${esc(p.url)}" target="_blank" rel="noopener">Ouvrir</a></div><div style="clear:both"></div>`;
+    out.appendChild(d);
+  });
+  return "";
 }
 
 async function runAnime(t,payload){
@@ -241,7 +247,7 @@ async function runAnime(t,payload){
     const score=m.score??null;
     const pill=score==null?"":`<span class="anime-score ${score>=8?"hi":score>=6?"mid":"lo"}>★ ${score}/10</span>`;
     const links=(m.streaming||[]).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.site)}</a>`).join("")||"";
-    d.innerHTML=`${m.cover?`<img src="${esc(m.cover)}" alt="" loading="lazy">`:""}<div class="anime-body"><div class="anime-top"><h4>${esc(m.title)}</h4>${pill}</div><p class="anime-meta">${esc(m.format)} • ${esc(String(m.episodes))} ép/chap • ${esc(String(m.year))}</p><p class="anime-desc">${esc(m.desc)}</p><div class="anime-links">${links}<a class="ghost" href="${esc(m.anilist)}" target="_blank" rel="noopener">Fiche AniList</a></div></div>`;
+    d.innerHTML=`${m.cover?`<img src="${esc(m.cover)}" alt="" loading="lazy">`:""}<h4>${esc(m.title)}${pill}</h4><p class="anime-meta">${esc(m.format)} • ${esc(String(m.episodes))} ép/chap • ${esc(String(m.year))}</p><p class="anime-desc">${esc(m.desc)}</p><div class="anime-links">${links}<a class="ghost" href="${esc(m.anilist)}" target="_blank" rel="noopener">Fiche AniList</a></div><div style="clear:both"></div>`;
     out.appendChild(d);
   });
 }
