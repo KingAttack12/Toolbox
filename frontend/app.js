@@ -2,6 +2,9 @@
 const $ = (s) => document.querySelector(s);
 
 /* ---------- catalogue d'outils Phase 1+2 ---------- */
+const ANIME_GENRES = [["Action","Action"],["Adventure","Aventure"],["Comedy","Comédie"],["Drama","Drame"],["Ecchi","Ecchi"],["Fantasy","Fantasy"],["Horror","Horreur"],["Mahou Shoujo","Magical girl"],["Mecha","Mecha"],["Music","Musique"],["Mystery","Mystère"],["Psychological","Psychologique"],["Romance","Romance"],["Sci-Fi","Sci-Fi"],["Slice of Life","Tranche de vie"],["Sports","Sport"],["Supernatural","Surnaturel"],["Thriller","Thriller"]];
+const GENRE_OPTS = [{v:"",l:"Tous les genres"}, ...ANIME_GENRES.map(([v,l])=>({v,l}))];
+const GENRE_LABEL = Object.fromEntries(ANIME_GENRES);
 const TOOLS = [
   // Texte & code
   {id:"count", cat:"texte", icon:"🔢", name:"Compteur mots/caractères", desc:"Mots, caractères, lignes, phrases.", fields:[{k:"text",label:"Texte",type:"textarea"}], ep:"/api/tools/text/count"},
@@ -45,8 +48,18 @@ const TOOLS = [
   // Média
   {id:"mp3", cat:"media", icon:"🎵", name:"MP4 → MP3", desc:"Extrait l'audio (128/192/320 kbps). Upload max ~50 Mo.", fields:[{k:"file",label:"Vidéo",type:"file",accept:"video/*"},{k:"bitrate",label:"Qualité",type:"select",opts:["128","192","320"],def:"192"}], ep:"/api/tools/media/mp4-to-mp3", blob:true, multipart:true},
   // Manga / Animé (100 % légal)
-  {id:"anime", cat:"anime", icon:"🎌", name:"Chercher un animé / manga", desc:"Fiche + où regarder légalement (AniList).", fields:[{k:"query",label:"Titre (ex : Frieren)",type:"text"},{k:"type",label:"Type",type:"select",opts:["anime","manga"]}], ep:"/api/tools/anime/search", custom:"anime"},
-  {id:"legal", cat:"anime", icon:"📚", name:"Plateformes légales gratuites", desc:"MangaPlus, ADN, Slash…", fields:[], ep:"/api/tools/anime/legal", method:"GET"},
+  {id:"anime", cat:"anime", icon:"🎌", name:"Chercher un animé / manga", desc:"Fiche, note, genres et où regarder légalement (AniList).", fields:[
+    {k:"query",label:"Titre (ex : Frieren)",type:"text"},
+    {k:"type",label:"Type",type:"select",opts:[{v:"anime",l:"Animé"},{v:"manga",l:"Manga"}]},
+    {k:"sort",label:"Trier par",type:"select",opts:[{v:"SEARCH_MATCH",l:"Pertinence"},{v:"POPULARITY_DESC",l:"Popularité"},{v:"SCORE_DESC",l:"Meilleure note"},{v:"START_DATE_DESC",l:"Plus récent"}]},
+    {k:"genre",label:"Genre (optionnel)",type:"select",opts:GENRE_OPTS}
+  ], ep:"/api/tools/anime/search", custom:"anime"},
+  {id:"animeTrend", cat:"anime", icon:"🔥", name:"Tendances animé & manga", desc:"Les titres du moment, filtrables par genre.", fields:[
+    {k:"type",label:"Type",type:"select",opts:[{v:"anime",l:"Animé"},{v:"manga",l:"Manga"}]},
+    {k:"sort",label:"Tri",type:"select",opts:[{v:"TRENDING_DESC",l:"Tendances"},{v:"POPULARITY_DESC",l:"Popularité"},{v:"SCORE_DESC",l:"Meilleures notes"},{v:"START_DATE_DESC",l:"Nouveautés"}]},
+    {k:"genre",label:"Genre (optionnel)",type:"select",opts:GENRE_OPTS}
+  ], ep:"/api/tools/anime/discover", custom:"discover"},
+  {id:"legal", cat:"anime", icon:"📚", name:"Plateformes légales", desc:"Gratuit ou abonnement : où regarder / lire.", fields:[], ep:"/api/tools/anime/legal", custom:"legal"},
   // Bientôt
   {id:"office", cat:"soon", icon:"📝", name:"Word/PDF + OCR (bientôt)", desc:"LibreOffice, Tesseract…", soon:true},
   {id:"ai", cat:"soon", icon:"🤖", name:"IA (Phase 6, optionnel)", desc:"Résumé, QCM… désactivé.", soon:true},
@@ -130,7 +143,7 @@ function openTool(t){
   currentTool=t;
   $("#toolTitle").textContent=t.icon+" "+t.name;
   $("#toolDesc").textContent=(t.desc||"")+(t.hint?" Hint: "+t.hint:"");
-  $("#toolOutput").textContent=""; $("#toolError").textContent="";
+  resetOutput(); $("#toolError").textContent="";
   $("#toolDownloadWrap").classList.add("hidden");
   $("#toolFav").textContent=favs.has(t.id)?"★ Favori":"☆ Favori";
   const box=$("#toolFields"); box.innerHTML="";
@@ -138,13 +151,18 @@ function openTool(t){
     const div=document.createElement("div"); div.className="field";
     if(f.type==="file"){ const mult=f.multiple?" multiple":""; const acc=f.accept?` accept="${f.accept}"`:" accept=\"image/*\""; div.innerHTML=`<label>${f.label}<input type="file"${mult}${acc} data-k="${f.k}"></label>`; }
     else if(f.type==="textarea") div.innerHTML=`<label>${f.label}<textarea data-k="${f.k}">${f.def||""}</textarea></label>`;
-    else if(f.type==="select") div.innerHTML=`<label>${f.label}<select data-k="${f.k}">${f.opts.map(o=>`<option ${o===(f.def||f.opts[0])?"selected":""}>${o}</option>`).join("")}</select></label>`;
+    else if(f.type==="select"){
+      const opts=f.opts.map(o=>typeof o==="object"?o:{v:o,l:o});
+      const def=f.def!==undefined?f.def:opts[0].v;
+      div.innerHTML=`<label>${f.label}<select data-k="${f.k}">${opts.map(o=>`<option value="${esc(o.v)}" ${o.v===def?"selected":""}>${esc(o.l)}</option>`).join("")}</select></label>`;
+    }
     else if(f.type==="check") div.innerHTML=`<label><input type="checkbox" data-k="${f.k}" ${f.def?"checked":""}> ${f.label}</label>`;
     else if(f.type==="number") div.innerHTML=`<label>${f.label}<input type="number" data-k="${f.k}" value="${f.def??""}"></label>`;
     else div.innerHTML=`<label>${f.label}<input type="text" data-k="${f.k}" value="${f.def||""}"></label>`;
     box.appendChild(div);
   });
   $("#toolModal").classList.remove("hidden");
+  if(t.custom==="anime") loadDiscover();
 }
 $("#toolClose").onclick=()=>$("#toolModal").classList.add("hidden");
 $("#toolModal").addEventListener("click",(e)=>{ if(e.target.id==="toolModal") $("#toolModal").classList.add("hidden"); });
@@ -167,54 +185,67 @@ function collectPayload(t){
   return p;
 }
 
+/* ---------- sorties : texte brut ou cartes riches ---------- */
+function resetOutput(){
+  const pre=$("#toolOutput"); pre.textContent=""; pre.classList.remove("hidden");
+  const rich=$("#toolResults"); rich.innerHTML=""; rich.classList.add("hidden");
+}
+function richOut(){
+  const pre=$("#toolOutput"); pre.textContent=""; pre.classList.add("hidden");
+  const rich=$("#toolResults"); rich.innerHTML=""; rich.classList.remove("hidden"); return rich;
+}
+function loadingBox(msg){
+  richOut().innerHTML=`<div class="anime-loading"><span class="spinner"></span><span>${esc(msg)}</span></div>`;
+}
+
 $("#toolRun").onclick=async ()=>{
   const t=currentTool; if(!t) return;
-  $("#toolError").textContent=""; $("#toolOutput").textContent="";
+  $("#toolError").textContent="";
   $("#toolDownloadWrap").classList.add("hidden");
+  resetOutput();
   let payload;
   try{ payload=collectPayload(t); }catch(e){ $("#toolError").textContent=e.message; return; }
   $("#toolProgress").classList.remove("hidden");
   try{
-    let opts;
-    if(t.method==="GET"){
-      const r=await fetch(t.ep);
-      const j=await r.json();
-      if(!r.ok) throw new Error(errMsg(j,r));
-      fmtLegal(j);
-    }
-    else if(t.custom==="anime"){ await runAnime(t,payload); }
-    else if(t.multipart){
-      const fd=new FormData();
-      for(const [k,v] of Object.entries(payload)){
-        if(Array.isArray(v)) v.forEach(f=>fd.append(k,f));
-        else fd.append(k, v instanceof File?v:String(v));
+    if(t.custom==="anime") await runAnime(payload);
+    else if(t.custom==="discover") await runDiscover(payload,true);
+    else if(t.custom==="legal") await runLegal();
+    else {
+      let opts;
+      if(t.multipart){
+        const fd=new FormData();
+        for(const [k,v] of Object.entries(payload)){
+          if(Array.isArray(v)) v.forEach(f=>fd.append(k,f));
+          else fd.append(k, v instanceof File?v:String(v));
+        }
+        opts={method:"POST",body:fd};
+      } else opts={method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)};
+      const r=await fetch(t.ep,opts);
+      const ctype=r.headers.get("Content-Type")||"";
+      if(t.metaSwitch && ctype.includes("application/json")){
+        const j=await r.json();
+        if(!r.ok) throw new Error(errMsg(j,r));
+        $("#toolOutput").textContent=fmt(j);
       }
-      opts={method:"POST",body:fd};
-    } else opts={method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)};
-    const r=await fetch(t.ep,opts);
-    const ctype=r.headers.get("Content-Type")||"";
-    if(t.metaSwitch && ctype.includes("application/json")){
-      const j=await r.json();
-      if(!r.ok) throw new Error(errMsg(j,r));
-      $("#toolOutput").textContent=fmt(j);
-    }
-    else if(t.blob){
-      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(errMsg(j,r)); }
-      const blob=await r.blob();
-      const url=URL.createObjectURL(blob);
-      $("#toolOutput").textContent="✅ Fichier généré ("+(blob.size/1024).toFixed(1)+" Ko). Aperçu ci-dessous :";
-      if(blob.type.startsWith("image/")){
-        const img=document.createElement("img"); img.src=url; img.style.maxWidth="100%"; img.style.display="block"; img.style.marginTop="8px";
-        $("#toolOutput").appendChild(img);
+      else if(t.blob){
+        if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(errMsg(j,r)); }
+        const blob=await r.blob();
+        const url=URL.createObjectURL(blob);
+        const box=richOut();
+        box.innerHTML=`<p class="muted">✅ Fichier généré (${(blob.size/1024).toFixed(1)} Ko).</p>`;
+        if(blob.type.startsWith("image/")){
+          const img=document.createElement("img"); img.className="preview-img"; img.src=url; img.alt="Aperçu";
+          box.appendChild(img);
+        }
+        const a=$("#toolDownload"); a.href=url;
+        const cd=r.headers.get("Content-Disposition")||""; const m=/filename="([^"]+)"/.exec(cd);
+        if(m) a.download=m[1]; else a.download="resultat";
+        $("#toolDownloadWrap").classList.remove("hidden");
+      } else {
+        const j=await r.json();
+        if(!r.ok) throw new Error(errMsg(j,r));
+        $("#toolOutput").textContent=fmt(j);
       }
-      const a=$("#toolDownload"); a.href=url;
-      const cd=r.headers.get("Content-Disposition")||""; const m=/filename="([^"]+)"/.exec(cd);
-      if(m) a.download=m[1]; else a.download="resultat";
-      $("#toolDownloadWrap").classList.remove("hidden");
-    } else {
-      const j=await r.json();
-      if(!r.ok) throw new Error(errMsg(j,r));
-      $("#toolOutput").textContent=fmt(j);
     }
     recent=[t.id,...recent.filter(x=>x!==t.id)].slice(0,5);
     storeSet("tb_recent",recent); renderRecent();
@@ -227,29 +258,87 @@ function fmt(j){
   return JSON.stringify(j,null,2);
 }
 
-function fmtLegal(j){
-  const out=$("#toolOutput"); out.innerHTML="";
-  (j.platforms||[]).forEach(p=>{
-    const d=document.createElement("div"); d.className="anime-card";
-    d.innerHTML=`<h4>${esc(p.name)} <span class="anime-meta">${esc(p.type)}</span></h4><p class="anime-desc">${esc(p.note)}</p><div class="anime-links"><a href="${esc(p.url)}" target="_blank" rel="noopener">Ouvrir</a></div><div style="clear:both"></div>`;
-    out.appendChild(d);
-  });
-  return "";
+/* ---------- manga / animé (AniList, 100 % légal) ---------- */
+const FORMAT_LABEL={TV:"Série TV",TV_SHORT:"Format court",MOVIE:"Film",SPECIAL:"Spécial",OVA:"OVA",ONA:"ONA",MUSIC:"Clip",MANGA:"Manga",NOVEL:"Light novel",ONE_SHOT:"One-shot"};
+const STATUS_LABEL={FINISHED:"Terminé",RELEASING:"En cours",NOT_YET_RELEASED:"À venir",CANCELLED:"Annulé",HIATUS:"En pause"};
+const SORT_LABEL={TRENDING_DESC:"Tendances",POPULARITY_DESC:"Popularité",SCORE_DESC:"Meilleures notes",FAVOURITES_DESC:"Coups de cœur",START_DATE_DESC:"Nouveautés"};
+
+let animeSeq=0;
+function compact(n){ n=Number(n)||0; return n>=1000?(n/1000).toFixed(n>=10000?0:1).replace(".",",")+"k":String(n); }
+
+function animeCard(m){
+  const score=m.score==null?"":`<span class="anime-score ${m.score>=8?"hi":m.score>=6?"mid":"lo"}">${Number(m.score).toFixed(1)}</span>`;
+  const cover=m.cover
+    ?`<a class="anime-cover" href="${esc(m.anilist)}" target="_blank" rel="noopener"><img src="${esc(m.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">${score}</a>`
+    :`<div class="anime-cover empty">${score||'<span class="muted">?</span>'}</div>`;
+  const bits=[];
+  if(m.year) bits.push(esc(String(m.year)));
+  if(m.format) bits.push(esc(FORMAT_LABEL[m.format]||m.format));
+  if(m.status) bits.push(`<span class="anime-status ${esc(String(m.status).toLowerCase())}">${esc(STATUS_LABEL[m.status]||m.status)}</span>`);
+  const len=m.type==="manga"
+    ? [m.chapters?`${m.chapters} chap.`:"", m.volumes?`${m.volumes} vol.`:""]
+    : [m.episodes?`${m.episodes} ép.`:"", m.duration?`${m.duration} min`:""];
+  len.filter(Boolean).forEach(x=>bits.push(esc(x)));
+  if(m.favourites) bits.push(`❤ ${compact(m.favourites)}`);
+  const chips=(m.genres||[]).map(g=>`<span class="anime-chip">${esc(GENRE_LABEL[g]||g)}</span>`).join("");
+  const links=(m.streaming||[]).slice(0,4).map(s=>
+    `<a class="anime-link${s.official?" official":""}" href="${esc(s.url)}" target="_blank" rel="noopener">${s.official?"✓ ":""}${esc(s.site)}</a>`);
+  if(m.trailer) links.push(`<a class="anime-link ghost" href="${esc(m.trailer)}" target="_blank" rel="noopener">▶ Bande-annonce</a>`);
+  if(m.anilist) links.push(`<a class="anime-link ghost" href="${esc(m.anilist)}" target="_blank" rel="noopener">AniList ↗</a>`);
+  const warn=(m.streaming&&m.streaming.length)?"":`<p class="anime-warn">Aucun diffuseur officiel listé sur AniList pour ce titre — voir les plateformes légales.</p>`;
+  return `<article class="anime-card">${cover}<div class="anime-body"><h4>${esc(m.title)}</h4>${m.alt?`<span class="anime-alt">${esc(m.alt)}</span>`:""}<p class="anime-meta">${bits.join(" · ")}</p>${chips?`<div class="anime-chips">${chips}</div>`:""}<p class="anime-desc">${esc(m.desc)}</p><div class="anime-links">${links.join("")}</div>${warn}</div></article>`;
 }
 
-async function runAnime(t,payload){
-  const r=await fetch(t.ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-  const j=await r.json();
+function renderAnimeResults(list,heading,sub){
+  const box=richOut();
+  box.innerHTML=`<div class="anime-head-bar"><div><h4>${esc(heading)}</h4>${sub?`<p class="muted">${esc(sub)}</p>`:""}</div><span class="anime-legal">100 % légal</span></div><div class="anime-list">${list.map(animeCard).join("")}</div>${list.length?`<p class="anime-foot">Métadonnées et liens officiels fournis par AniList — aucun contenu piraté.</p>`:`<p class="anime-empty">Aucun résultat. Essayez le titre original (romaji) ou un autre genre.</p>`}`;
+}
+
+async function runAnime(payload){
+  const seq=++animeSeq;
+  loadingBox("Recherche sur AniList…");
+  const r=await fetch("/api/tools/anime/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const j=await r.json().catch(()=>({}));
+  if(seq!==animeSeq) return;
   if(!r.ok) throw new Error(errMsg(j,r));
-  const out=$("#toolOutput"); out.innerHTML="";
-  (j.results||[]).forEach(m=>{
-    const d=document.createElement("div"); d.className="anime-card";
-    const score=m.score??null;
-    const pill=score==null?"":`<span class="anime-score ${score>=8?"hi":score>=6?"mid":"lo"}>★ ${score}/10</span>`;
-    const links=(m.streaming||[]).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.site)}</a>`).join("")||"";
-    d.innerHTML=`${m.cover?`<img src="${esc(m.cover)}" alt="" loading="lazy">`:""}<h4>${esc(m.title)}${pill}</h4><p class="anime-meta">${esc(m.format)} • ${esc(String(m.episodes))} ép/chap • ${esc(String(m.year))}</p><p class="anime-desc">${esc(m.desc)}</p><div class="anime-links">${links}<a class="ghost" href="${esc(m.anilist)}" target="_blank" rel="noopener">Fiche AniList</a></div><div style="clear:both"></div>`;
-    out.appendChild(d);
-  });
+  renderAnimeResults(j.results||[], `Résultats pour « ${payload.query||""} »`, `${j.count||0} résultat(s) — ${payload.type==="manga"?"manga":"animé"}`);
+}
+
+async function runDiscover(payload={},fromTool=false,seq){
+  seq=seq||++animeSeq;
+  const type=payload.type==="manga"?"manga":"anime";
+  loadingBox(type==="manga"?"Chargement des mangas…":"Chargement des animés…");
+  const qs=new URLSearchParams({type,limit:"10"});
+  if(fromTool&&payload.sort) qs.set("sort",payload.sort);
+  if(fromTool&&payload.genre) qs.set("genre",payload.genre);
+  const r=await fetch("/api/tools/anime/discover?"+qs.toString());
+  const j=await r.json().catch(()=>({}));
+  if(seq!==animeSeq) return;
+  if(!r.ok) throw new Error(errMsg(j,r));
+  const sort=(fromTool&&payload.sort)||"TRENDING_DESC";
+  const genre=(fromTool&&payload.genre)?` · ${payload.genre}`:"";
+  renderAnimeResults(j.results||[], `${SORT_LABEL[sort]||"Tendances"} ${type==="manga"?"manga":"animé"}${genre}`, "Sélection AniList mise à jour en continu");
+}
+
+async function loadDiscover(){
+  const seq=++animeSeq;
+  try{ await runDiscover({type:"anime"},false,seq); }
+  catch(e){
+    if(seq!==animeSeq) return;
+    richOut().innerHTML='<p class="anime-empty">Tendances indisponibles pour le moment — lancez une recherche ou choisissez un genre.</p>';
+  }
+}
+
+async function runLegal(){
+  const seq=++animeSeq;
+  loadingBox("Chargement des plateformes…");
+  const r=await fetch("/api/tools/anime/legal");
+  const j=await r.json().catch(()=>({}));
+  if(seq!==animeSeq) return;
+  if(!r.ok) throw new Error(errMsg(j,r));
+  const card=p=>`<article class="anime-card platform"><div class="anime-body"><h4>${esc(p.name)}</h4><div class="anime-chips"><span class="anime-chip">${p.type==="manga"?"Manga":"Animé"}</span><span class="anime-chip">${p.free?"Gratuit":"Abonnement"}</span></div><p class="anime-desc">${esc(p.note)}</p><div class="anime-links"><a class="anime-link${p.free?" official":""}" href="${esc(p.url)}" target="_blank" rel="noopener">Ouvrir</a></div></div></article>`;
+  const group=(title,list)=>list.length?`<h4 class="anime-section">${title}</h4><div class="platform-grid">${list.map(card).join("")}</div>`:"";
+  richOut().innerHTML=`<div class="anime-head-bar"><div><h4>Plateformes légales</h4><p class="muted">Offres gratuites et par abonnement, sans lien pirate.</p></div><span class="anime-legal">100 % légal</span></div>${group("🎁 Gratuit",j.free||[])}${group("💳 Abonnement",j.paid||[])}<p class="anime-foot">Liste vérifiée à la main ; les catalogues évoluent avec le temps.</p>`;
 }
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }

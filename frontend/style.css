@@ -28,5 +28,43 @@ button{cursor:pointer}.primary,button[type=submit]{background:var(--acc);color:#
 .footer{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;padding:18px 16px 28px;color:var(--muted);font-size:.85rem}.footer a{color:var(--acc)}
 .linklike{background:none;border:none;color:var(--acc);font-size:.85rem;padding:0;text-decoration:underline;cursor:pointer}
 .info-body{line-height:1.55;font-size:.93rem}.info-body h4{margin:1em 0 .3em}.info-body p,.info-body li{margin:.3em 0}.info-body ul{padding-left:1.2em}
-.anime-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;white-space:normal;word-break:normal;overflow:hidden}.anime-card img{float:left;width:110px;height:154px;object-fit:cover;border-radius:10px;margin:0 12px 6px 0}.anime-card h4{margin:0 0 4px;font-size:1rem;white-space:normal}.anime-score{display:inline-block;font-weight:800;font-size:.78rem;padding:3px 10px;border-radius:999px;color:#fff;white-space:nowrap;margin-left:6px}.anime-score.hi{background:#16a34a}.anime-score.mid{background:#d97706}.anime-score.lo{background:#dc2626}.anime-meta{color:var(--muted);font-size:.78rem;margin:4px 0}.anime-desc{font-size:.85rem;line-height:1.45;margin:6px 0}.anime-links{margin-top:8px}.anime-links a{display:inline-block;font-size:.78rem;font-weight:700;padding:5px 12px;border-radius:999px;background:var(--acc);color:#fff!important;text-decoration:none;margin:0 6px 6px 0}.anime-links a.ghost{background:var(--bg);color:var(--ink)!important;border:1px solid var(--line)}
+/* --- Manga / animé --- */
+.anime-results{margin-top:10px}
+.anime-head-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.anime-head-bar h4{margin:0;font-size:1.05rem}
+.anime-head-bar p{margin:2px 0 0;font-size:.8rem}
+.anime-legal{font-size:.72rem;font-weight:800;padding:4px 9px;border-radius:999px;background:#dcfce7;color:#166534;white-space:nowrap}
+[data-theme=dark] .anime-legal{background:#14532d;color:#bbf7d0}
+.anime-list{display:grid;gap:12px}
+.anime-card{display:grid;grid-template-columns:104px 1fr;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.anime-cover{position:relative;display:block;height:150px}
+.anime-cover img{width:104px;height:150px;object-fit:cover;border-radius:10px;display:block;background:var(--bg)}
+.anime-cover.empty{display:flex;align-items:center;justify-content:center;background:var(--bg);border-radius:10px;border:1px dashed var(--line)}
+.anime-cover.empty .anime-score{position:static}
+.anime-score{position:absolute;left:6px;top:6px;font-weight:800;font-size:.75rem;padding:2px 8px;border-radius:999px;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.anime-score.hi{background:#16a34a}.anime-score.mid{background:#d97706}.anime-score.lo{background:#dc2626}
+.anime-body{min-width:0}
+.anime-body h4{margin:0;font-size:1rem;line-height:1.25;overflow-wrap:anywhere}
+.anime-alt{display:block;font-size:.75rem;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.anime-meta{margin:6px 0 0;font-size:.78rem;color:var(--muted)}
+.anime-status{font-weight:700}
+.anime-status.releasing{color:#16a34a}
+.anime-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.anime-chip{font-size:.7rem;padding:2px 8px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.anime-desc{margin:8px 0 0;font-size:.84rem;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.anime-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.anime-link{font-size:.75rem;font-weight:700;padding:5px 11px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--ink)!important;text-decoration:none}
+.anime-link.official{background:var(--acc);border-color:var(--acc);color:#fff!important}
+.anime-warn{margin:8px 0 0;font-size:.75rem;color:#b45309}
+.anime-foot{margin:14px 0 0;font-size:.72rem;color:var(--muted);text-align:center}
+.anime-empty{padding:16px;text-align:center;color:var(--muted);background:var(--bg);border-radius:10px;margin:0}
+.anime-loading{display:flex;align-items:center;gap:10px;justify-content:center;padding:22px;color:var(--muted)}
+.spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.anime-section{margin:16px 0 8px;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.platform-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.anime-card.platform{display:block;box-shadow:none}
+.anime-card.platform h4{margin:0}
+.preview-img{margin-top:10px;max-width:100%;border-radius:10px;display:block;border:1px solid var(--line)}
 @media(max-width:600px){.brand .sub{display:none}.grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.anime-card{grid-template-columns:82px 1fr;gap:10px;padding:10px}.anime-cover,.anime-cover img{width:82px;height:120px}.anime-desc{-webkit-line-clamp:4}}
