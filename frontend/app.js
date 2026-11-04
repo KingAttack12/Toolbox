@@ -117,16 +117,15 @@ $("#search").addEventListener("input",(e)=>renderGrid(curCat,e.target.value));
 function renderGrid(cat,q){
   q=(q||"").toLowerCase();
   const grid=$("#toolsGrid"); grid.innerHTML="";
-  TOOLS.filter(t=>{
-    if(favs.has(t.id)) return true; // favoris toujours visibles dans "all"? non, simple:
-    return true;
-  }).filter(t=> (cat==="all"||t.cat===cat||(cat==="soon"&&t.soon)))
+  const items=TOOLS.filter(t=> (cat==="all"||(cat==="favorites"&&favs.has(t.id))||t.cat===cat||(cat==="soon"&&t.soon)))
     .filter(t=> (t.name+t.desc+t.id).toLowerCase().includes(q))
-    .sort((a,b)=> (favs.has(b.id)?1:0)-(favs.has(a.id)?1:0))
-    .forEach(t=>{
+    .sort((a,b)=> (favs.has(b.id)?1:0)-(favs.has(a.id)?1:0));
+  $("#gridTitle").textContent=cat==="favorites"?"Tes favoris":cat==="all"?"Tous les outils":document.querySelector('.cat[data-cat="'+cat+'"]')?.textContent?.replace(/^\S+\s*/,"")||"Outils";
+  $("#toolCount").textContent=items.length+" outil"+(items.length>1?"s":"");
+  items.forEach(t=>{
       const btn=document.createElement("button");
       btn.className="tool"+(t.soon?" disabled":"");
-      btn.innerHTML=`<span class="fav">${favs.has(t.id)?"★":"☆"}</span><div style="font-size:1.5rem">${t.icon}</div><h4>${t.name}</h4><p>${t.desc}</p>`;
+      btn.innerHTML=`<span class="fav">${favs.has(t.id)?"★":"☆"}</span><div class="tool-icon">${t.icon}</div><h4>${t.name}</h4><p>${t.desc}</p><span class="tool-arrow" aria-hidden="true">↗</span>`;
       btn.onclick=(ev)=>{
         if(ev.target.classList.contains("fav")){ toggleFav(t.id); ev.stopPropagation(); return; }
         if(t.soon){ alert("Prévu dans une phase suivante."); return; }
@@ -134,9 +133,10 @@ function renderGrid(cat,q){
       };
       grid.appendChild(btn);
     });
+  if(!items.length){ const empty=document.createElement("div"); empty.className="empty-state"; empty.innerHTML="<span>⌕</span><h3>"+(cat==="favorites"?"Pas encore de favoris":"Aucun outil trouvé")+"</h3><p>"+(cat==="favorites"?"Ajoute un outil avec ☆ pour le retrouver ici.":"Essaie avec un autre mot-clé.")+"</p>"; grid.appendChild(empty); }
 }
 function toggleFav(id){ favs.has(id)?favs.delete(id):favs.add(id); storeSet("tb_favs",[...favs]); renderGrid(curCat,$("#search").value); }
-function renderRecent(){ $("#recentLine").textContent = recent.length? "🕘 Récents : "+recent.map(id=>{const t=TOOLS.find(x=>x.id===id);return t?t.name:id;}).join(" • ") : ""; }
+function renderRecent(){ const line=$("#recentLine"); line.innerHTML=""; if(!recent.length)return; const label=document.createElement("span"); label.textContent="Récemment utilisés"; line.append(label); recent.forEach(id=>{const t=TOOLS.find(x=>x.id===id);if(!t)return;const b=document.createElement("button");b.className="recent-chip";b.textContent=t.icon+" "+t.name;b.onclick=()=>openTool(t);line.append(b);}); }
 
 /* ---------- modal outil ---------- */
 function openTool(t){
@@ -162,10 +162,13 @@ function openTool(t){
     box.appendChild(div);
   });
   $("#toolModal").classList.remove("hidden");
+  document.body.classList.add("modal-open");
   if(t.custom==="anime") loadDiscover();
 }
-$("#toolClose").onclick=()=>$("#toolModal").classList.add("hidden");
-$("#toolModal").addEventListener("click",(e)=>{ if(e.target.id==="toolModal") $("#toolModal").classList.add("hidden"); });
+function closeTool(){ $("#toolModal").classList.add("hidden"); document.body.classList.remove("modal-open"); }
+$("#toolClose").onclick=closeTool;
+$("#toolModal").addEventListener("click",(e)=>{ if(e.target.id==="toolModal") closeTool(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeTool(); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();$("#search").focus();} });
 $("#toolFav").onclick=()=>{ if(currentTool){toggleFav(currentTool.id); $("#toolFav").textContent=favs.has(currentTool.id)?"★ Favori":"☆ Favori";} };
 
 function collectPayload(t){
@@ -188,6 +191,7 @@ function collectPayload(t){
 /* ---------- sorties : texte brut ou cartes riches ---------- */
 function resetOutput(){
   const pre=$("#toolOutput"); pre.textContent=""; pre.classList.remove("hidden");
+  $("#outputWrap").classList.add("hidden");
   const rich=$("#toolResults"); rich.innerHTML=""; rich.classList.add("hidden");
 }
 function richOut(){
@@ -206,6 +210,7 @@ $("#toolRun").onclick=async ()=>{
   let payload;
   try{ payload=collectPayload(t); }catch(e){ $("#toolError").textContent=e.message; return; }
   $("#toolProgress").classList.remove("hidden");
+  $("#toolRun").disabled=true; $("#toolRun").textContent="Traitement…";
   try{
     if(t.custom==="anime") await runAnime(payload);
     else if(t.custom==="discover") await runDiscover(payload,true);
@@ -225,7 +230,7 @@ $("#toolRun").onclick=async ()=>{
       if(t.metaSwitch && ctype.includes("application/json")){
         const j=await r.json();
         if(!r.ok) throw new Error(errMsg(j,r));
-        $("#toolOutput").textContent=fmt(j);
+        $("#toolOutput").textContent=fmt(j); $("#outputWrap").classList.remove("hidden");
       }
       else if(t.blob){
         if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(errMsg(j,r)); }
@@ -244,13 +249,19 @@ $("#toolRun").onclick=async ()=>{
       } else {
         const j=await r.json();
         if(!r.ok) throw new Error(errMsg(j,r));
-        $("#toolOutput").textContent=fmt(j);
+        $("#toolOutput").textContent=fmt(j); $("#outputWrap").classList.remove("hidden");
       }
     }
     recent=[t.id,...recent.filter(x=>x!==t.id)].slice(0,5);
     storeSet("tb_recent",recent); renderRecent();
   }catch(e){ $("#toolError").textContent="❌ "+e.message; }
-  finally{ $("#toolProgress").classList.add("hidden"); }
+  finally{ $("#toolProgress").classList.add("hidden"); $("#toolRun").disabled=false; $("#toolRun").textContent="Exécuter"; }
+};
+
+$("#copyOutput").onclick=async()=>{
+  const value=$("#toolOutput").textContent;
+  try{await navigator.clipboard.writeText(value); $("#copyOutput").textContent="Copié ✓"; setTimeout(()=>$("#copyOutput").textContent="Copier",1400);}
+  catch(e){ $("#toolError").textContent="Copie indisponible dans ce navigateur."; }
 };
 
 function fmt(j){

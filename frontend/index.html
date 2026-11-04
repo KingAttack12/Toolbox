@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🛠 Toolbox privée</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A0%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="/static/style.css?v=9">
+<meta name="theme-color" content="#f4f6fb">
+<link rel="stylesheet" href="/static/style.css?v=10">
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">🛠 TOOLBOX <span class="sub">Tous tes outils au même endroit</span></div>
+  <a class="brand" href="/" aria-label="Toolbox, accueil"><span class="brand-mark">✳</span><span>TOOLBOX<small class="sub">Tes outils, simplement.</small></span></a>
   <div class="top-actions">
-    <button id="themeBtn" title="Mode sombre/clair">🌙</button>
+    <button id="themeBtn" title="Mode sombre/clair" aria-label="Basculer le thème">🌙</button>
     <button id="logoutBtn" class="hidden">Déconnexion</button>
   </div>
 </header>
@@ -30,12 +31,17 @@
 
 <!-- App -->
 <main id="appView" class="hidden">
+  <section class="welcome">
+    <div><span class="eyebrow">ESPACE PERSONNEL</span><h1>Tout ce qu’il te faut,<br><em>au même endroit.</em></h1><p>Des outils rapides et pratiques pour le quotidien.</p></div>
+    <div class="welcome-mark" aria-hidden="true">✳</div>
+  </section>
   <div class="searchbar">
-    <input id="search" type="search" placeholder="🔍 Rechercher un outil... (ex : qr, tva, json, gc)">
+    <span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Rechercher un outil…" aria-label="Rechercher un outil"><kbd>Ctrl K</kbd>
   </div>
 
   <section class="cats">
     <button data-cat="all" class="cat active">⭐ Tout</button>
+    <button data-cat="favorites" class="cat">☆ Favoris</button>
     <button data-cat="texte" class="cat">📝 Texte &amp; Code</button>
     <button data-cat="calc" class="cat">🧮 Calculatrices</button>
     <button data-cat="bio" class="cat">🧬 Bioinfo</button>
@@ -48,6 +54,7 @@
   </section>
 
   <p id="recentLine" class="muted"></p>
+  <div class="grid-heading"><h2 id="gridTitle">Tous les outils</h2><span id="toolCount" class="muted"></span></div>
   <div id="toolsGrid" class="grid"></div>
 </main>
 
@@ -65,14 +72,14 @@
       <button id="toolFav">☆ Favori</button>
     </div>
     <div id="toolProgress" class="progress hidden"><div></div></div>
-    <pre id="toolOutput" class="output" placeholder="Résultat..."></pre>
+    <div id="outputWrap" class="output-wrap hidden"><div class="output-toolbar"><span>RÉSULTAT</span><button id="copyOutput" type="button">Copier</button></div><pre id="toolOutput" class="output" placeholder="Résultat..."></pre></div>
     <div id="toolResults" class="anime-results hidden"></div>
     <div id="toolDownloadWrap" class="hidden"><a id="toolDownload" download="resultat.png" class="btn">⬇ Télécharger le résultat</a></div>
     <p id="toolError" class="error"></p>
   </div>
 </div>
 
-<script src="/static/app.js?v=9"></script>
+<script src="/static/app.js?v=10"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">💻 Code source (GitHub)</a>
