@@ -8,7 +8,7 @@ APP_DIR="/home/${APP_USER}/toolbox"
 
 echo "=== [1/6] Paquets système ==="
 apt-get update
-apt-get install -y python3 python3-venv python3-pip nginx ufw
+apt-get install -y python3 python3-venv python3-pip nginx ufw libreoffice-writer tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
 
 echo "=== [2/6] Firewall ==="
 ufw allow OpenSSH || true

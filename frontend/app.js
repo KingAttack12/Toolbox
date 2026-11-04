@@ -45,6 +45,9 @@ const TOOLS = [
   {id:"img2pdf", cat:"pdf", icon:"📄", name:"Images → PDF", desc:"1 à 20 images en un PDF.", fields:[{k:"files",label:"Images",type:"file",multiple:true}], ep:"/api/tools/pdf/from-images", blob:true, multipart:true},
   {id:"pdfmeta", cat:"pdf", icon:"🏷️", name:"Métadonnées PDF", desc:"Lire, ou nettoyer + télécharger.", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"},{k:"strip",label:"Supprimer les métadonnées (renvoie un PDF nettoyé)",type:"check",def:false}], ep:"/api/tools/pdf/metadata", blob:true, multipart:true, metaSwitch:true},
   {id:"pdfcompress", cat:"pdf", icon:"🗜️", name:"Compresser un PDF", desc:"Réenregistrement optimisé (gain variable).", fields:[{k:"file",label:"PDF",type:"file",accept:"application/pdf"}], ep:"/api/tools/pdf/compress", blob:true, multipart:true},
+  {id:"word2pdf", cat:"pdf", icon:"📝", name:"Word → PDF", desc:"Convertit un document DOCX en PDF sur le serveur.", fields:[{k:"file",label:"Document Word (.docx, max 50 Mo)",type:"file",accept:".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"}], ep:"/api/tools/office/word-to-pdf", blob:true, multipart:true},
+  {id:"pdf2word", cat:"pdf", icon:"📄", name:"PDF → Word", desc:"Convertit un PDF texte en document DOCX modifiable.", fields:[{k:"file",label:"PDF (max 100 pages, 50 Mo)",type:"file",accept:"application/pdf"}], ep:"/api/tools/office/pdf-to-word", blob:true, multipart:true, hint:"Les scans doivent d'abord passer par OCR. La mise en page peut demander des retouches."},
+  {id:"pdfocr", cat:"pdf", icon:"🔎", name:"OCR de PDF scanné", desc:"Reconnaît le texte d'un scan et télécharge un fichier TXT.", fields:[{k:"file",label:"PDF scanné (max 20 pages, 50 Mo)",type:"file",accept:"application/pdf"},{k:"language",label:"Langue du document",type:"select",opts:[{v:"fra",l:"Français"},{v:"eng",l:"Anglais"},{v:"fra+eng",l:"Français + anglais"}],def:"fra"},{k:"dpi",label:"Qualité OCR",type:"select",opts:["100","150","200"],def:"150"}], ep:"/api/tools/office/ocr", blob:true, multipart:true},
   // Média
   {id:"mp3", cat:"media", icon:"🎵", name:"MP4 → MP3", desc:"Extrait l'audio (128/192/320 kbps). Upload max ~50 Mo.", fields:[{k:"file",label:"Vidéo",type:"file",accept:"video/*"},{k:"bitrate",label:"Qualité",type:"select",opts:["128","192","320"],def:"192"}], ep:"/api/tools/media/mp4-to-mp3", blob:true, multipart:true},
   // Manga / Animé (100 % légal)
@@ -61,7 +64,6 @@ const TOOLS = [
   ], ep:"/api/tools/anime/discover", custom:"discover"},
   {id:"legal", cat:"anime", icon:"📚", name:"Plateformes légales", desc:"Gratuit ou abonnement : où regarder / lire.", fields:[], ep:"/api/tools/anime/legal", custom:"legal"},
   // Bientôt
-  {id:"office", cat:"soon", icon:"📝", name:"Word/PDF + OCR (bientôt)", desc:"LibreOffice, Tesseract…", soon:true},
   {id:"ai", cat:"soon", icon:"🤖", name:"IA (Phase 6, optionnel)", desc:"Résumé, QCM… désactivé.", soon:true},
 ];
 
