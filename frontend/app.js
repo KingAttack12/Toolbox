@@ -63,8 +63,6 @@ const TOOLS = [
     {k:"genre",label:"Genre (optionnel)",type:"select",opts:GENRE_OPTS}
   ], ep:"/api/tools/anime/discover", custom:"discover"},
   {id:"legal", cat:"anime", icon:"📚", name:"Plateformes légales", desc:"Gratuit ou abonnement : où regarder / lire.", fields:[], ep:"/api/tools/anime/legal", custom:"legal"},
-  // Bientôt
-  {id:"ai", cat:"soon", icon:"🤖", name:"IA (Phase 6, optionnel)", desc:"Résumé, QCM… désactivé.", soon:true},
 ];
 
 let currentTool = null;
@@ -119,18 +117,17 @@ $("#search").addEventListener("input",(e)=>renderGrid(curCat,e.target.value));
 function renderGrid(cat,q){
   q=(q||"").toLowerCase();
   const grid=$("#toolsGrid"); grid.innerHTML="";
-  const items=TOOLS.filter(t=> (cat==="all"||(cat==="favorites"&&favs.has(t.id))||t.cat===cat||(cat==="soon"&&t.soon)))
+  const items=TOOLS.filter(t=> (cat==="all"||(cat==="favorites"&&favs.has(t.id))||t.cat===cat))
     .filter(t=> (t.name+t.desc+t.id).toLowerCase().includes(q))
     .sort((a,b)=> (favs.has(b.id)?1:0)-(favs.has(a.id)?1:0));
   $("#gridTitle").textContent=cat==="favorites"?"Tes favoris":cat==="all"?"Tous les outils":document.querySelector('.cat[data-cat="'+cat+'"]')?.textContent?.replace(/^\S+\s*/,"")||"Outils";
   $("#toolCount").textContent=items.length+" outil"+(items.length>1?"s":"");
   items.forEach(t=>{
       const btn=document.createElement("button");
-      btn.className="tool"+(t.soon?" disabled":"");
+      btn.className="tool";
       btn.innerHTML=`<span class="fav">${favs.has(t.id)?"★":"☆"}</span><div class="tool-icon">${t.icon}</div><h4>${t.name}</h4><p>${t.desc}</p><span class="tool-arrow" aria-hidden="true">↗</span>`;
       btn.onclick=(ev)=>{
         if(ev.target.classList.contains("fav")){ toggleFav(t.id); ev.stopPropagation(); return; }
-        if(t.soon){ alert("Prévu dans une phase suivante."); return; }
         openTool(t);
       };
       grid.appendChild(btn);
