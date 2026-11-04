@@ -27,7 +27,8 @@ local (français/anglais). Word → PDF utilise LibreOffice ; PDF → Word utili
 pdf2docx. L'OCR extrait le texte des PDF scannés en fichier TXT. Limites :
 50 Mo par fichier, 100 pages pour PDF → Word et 20 pages pour l'OCR.
 
-**Média** — conversion MP4→MP3.
+**Média** — conversion MP4→MP3 et bêta YouTube→MP3 pour une vidéo
+explicitement autorisée (20 min max, une à la fois).
 
 Interface en français, utilisable sur téléphone, recherche intégrée, favoris,
 mode sombre. Les outils lourds à venir (Word, OCR) sont affichés grisés.
@@ -44,6 +45,8 @@ mode sombre. Les outils lourds à venir (Word, OCR) sont affichés grisés.
   vide = désactivée), aucun appel externe sans ça.
 - LibreOffice Writer et Tesseract sont installés par le script Oracle ; leurs
   outils restent locaux au serveur.
+- La bêta YouTube utilise yt-dlp, Deno et FFmpeg ; elle est limitée aux vidéos
+  pour lesquelles le téléchargement est autorisé.
 
 ## L'essayer en 5 minutes (sur ton PC)
 
