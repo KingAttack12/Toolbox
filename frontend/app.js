@@ -66,6 +66,24 @@ const TOOLS = [
   {id:"legal", cat:"anime", icon:"📚", name:"Plateformes légales", desc:"Gratuit ou abonnement : où regarder / lire.", fields:[], ep:"/api/tools/anime/legal", custom:"legal"},
 ];
 
+
+const CATEGORY_LABELS = {all:"Tous les outils",favorites:"Favoris",texte:"Texte & code",calc:"Calculatrices",bio:"Bioinformatique",qr:"QR codes",img:"Images",pdf:"Documents",media:"Audio & vidéo",anime:"Manga & animé"};
+const ICON_PATHS = {
+ all:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+ favorites:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
+ texte:'<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/>',
+ calc:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 11h2m4 0h2m-8 4h2m4 0h2m-8 4h2m4 0h2"/>',
+ bio:'<path d="M7 2c0 10 10 10 10 20M17 2C17 12 7 12 7 22M8 5h8M9 9h6M9 15h6M8 19h8"/>',
+ qr:'<path d="M3 3h6v6H3zm12 0h6v6h-6zM3 15h6v6H3zm12 0h3v3h3v3h-6z"/>',
+ img:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/>',
+ pdf:'<path d="M14 2H5v20h14V7Zm0 0v5h5M8 12h8m-8 4h8"/>',
+ media:'<path d="M9 18V5l12-2v13M9 9l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/>',
+ anime:'<path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15"/>'
+};
+function uiIcon(category){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICON_PATHS[category]+'</svg>';}
+document.querySelector('.sidebar').appendChild(document.querySelector('.cats'));
+document.querySelectorAll('.cat').forEach(b=>{b.innerHTML=uiIcon(b.dataset.cat)+'<span>'+CATEGORY_LABELS[b.dataset.cat]+'</span>';b.setAttribute('aria-pressed',String(b.classList.contains('active')));});
+
 let currentTool = null;
 function storeGet(k, fb){ try{ const v=localStorage.getItem(k); return v==null?fb:JSON.parse(v); }catch(e){ return fb; } }
 function storeSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
@@ -77,12 +95,12 @@ function initTheme(){
   let t; try{ t=localStorage.getItem("tb_theme"); }catch(e){ t=null; }
   t=t||"light";
   document.documentElement.dataset.theme = t;
-  $("#themeBtn").textContent = t==="dark"?"☀️":"🌙";
+  $("#themeBtn").textContent = t==="dark"?"Mode clair":"Mode sombre";
 }
 $("#themeBtn").onclick = ()=>{
   const t = document.documentElement.dataset.theme==="dark"?"light":"dark";
   document.documentElement.dataset.theme=t; try{localStorage.setItem("tb_theme",t);}catch(e){}
-  $("#themeBtn").textContent = t==="dark"?"☀️":"🌙";
+  $("#themeBtn").textContent = t==="dark"?"Mode clair":"Mode sombre";
 };
 
 /* ---------- auth ---------- */
@@ -110,7 +128,8 @@ $("#logoutBtn").onclick = async ()=>{ await fetch("/api/logout",{method:"POST"})
 /* ---------- grille ---------- */
 let curCat="all";
 document.querySelectorAll(".cat").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll(".cat").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".cat").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-pressed","false");});
+  b.setAttribute("aria-pressed","true");
   b.classList.add("active"); curCat=b.dataset.cat; renderGrid(curCat,$("#search").value);
 });
 $("#search").addEventListener("input",(e)=>renderGrid(curCat,e.target.value));
@@ -121,12 +140,12 @@ function renderGrid(cat,q){
   const items=TOOLS.filter(t=> (cat==="all"||(cat==="favorites"&&favs.has(t.id))||t.cat===cat))
     .filter(t=> (t.name+t.desc+t.id).toLowerCase().includes(q))
     .sort((a,b)=> (favs.has(b.id)?1:0)-(favs.has(a.id)?1:0));
-  $("#gridTitle").textContent=cat==="favorites"?"Tes favoris":cat==="all"?"Tous les outils":document.querySelector('.cat[data-cat="'+cat+'"]')?.textContent?.replace(/^\S+\s*/,"")||"Outils";
+  $("#gridTitle").textContent=CATEGORY_LABELS[cat]||"Outils";
   $("#toolCount").textContent=items.length+" outil"+(items.length>1?"s":"");
   items.forEach(t=>{
       const btn=document.createElement("button");
       btn.className="tool";
-      btn.innerHTML=`<span class="fav">${favs.has(t.id)?"★":"☆"}</span><div class="tool-icon">${t.icon}</div><h4>${t.name}</h4><p>${t.desc}</p><span class="tool-arrow" aria-hidden="true">↗</span>`;
+      btn.innerHTML=`<span class="fav">${favs.has(t.id)?"★":"☆"}</span><div class="tool-icon">${uiIcon(t.cat)}</div><h4>${t.name}</h4><p>${t.desc}</p><span class="tool-arrow" aria-hidden="true">↗</span>`;
       btn.onclick=(ev)=>{
         if(ev.target.classList.contains("fav")){ toggleFav(t.id); ev.stopPropagation(); return; }
         openTool(t);
@@ -136,13 +155,13 @@ function renderGrid(cat,q){
   if(!items.length){ const empty=document.createElement("div"); empty.className="empty-state"; empty.innerHTML="<span>⌕</span><h3>"+(cat==="favorites"?"Pas encore de favoris":"Aucun outil trouvé")+"</h3><p>"+(cat==="favorites"?"Ajoute un outil avec ☆ pour le retrouver ici.":"Essaie avec un autre mot-clé.")+"</p>"; grid.appendChild(empty); }
 }
 function toggleFav(id){ favs.has(id)?favs.delete(id):favs.add(id); storeSet("tb_favs",[...favs]); renderGrid(curCat,$("#search").value); }
-function renderRecent(){ const line=$("#recentLine"); line.innerHTML=""; if(!recent.length)return; const label=document.createElement("span"); label.textContent="Récemment utilisés"; line.append(label); recent.forEach(id=>{const t=TOOLS.find(x=>x.id===id);if(!t)return;const b=document.createElement("button");b.className="recent-chip";b.textContent=t.icon+" "+t.name;b.onclick=()=>openTool(t);line.append(b);}); }
+function renderRecent(){ const line=$("#recentLine"); line.innerHTML=""; if(!recent.length)return; const label=document.createElement("span"); label.textContent="Récemment utilisés"; line.append(label); recent.forEach(id=>{const t=TOOLS.find(x=>x.id===id);if(!t)return;const b=document.createElement("button");b.className="recent-chip";b.textContent=t.name;b.onclick=()=>openTool(t);line.append(b);}); }
 
 /* ---------- modal outil ---------- */
 function openTool(t){
   currentTool=t;
-  $("#toolTitle").textContent=t.icon+" "+t.name;
-  $("#toolDesc").textContent=(t.desc||"")+(t.hint?" Hint: "+t.hint:"");
+  $("#toolTitle").textContent=t.name;
+  $("#toolDesc").textContent=(t.desc||"")+(t.hint?" — "+t.hint:"");
   resetOutput(); $("#toolError").textContent="";
   $("#toolDownloadWrap").classList.add("hidden");
   $("#toolFav").textContent=favs.has(t.id)?"★ Favori":"☆ Favori";
