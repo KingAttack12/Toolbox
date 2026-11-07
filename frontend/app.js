@@ -400,6 +400,27 @@ $('#signupForm').onsubmit=async e=>{
   catch(e){$('#signupMessage').textContent=e.message;}finally{button.disabled=false;}
 };
 let registrationEnabled=false;
+function adminFeedback(message){
+  const output=$('#adminMessage');
+  output.textContent=message;
+  output.scrollIntoView({block:'nearest'});
+}
+async function adminPost(path,payload){
+  const input=$('#adminPassword');
+  if(!input.value){
+    adminFeedback('Saisissez votre mot de passe administrateur dans le champ de confirmation, puis cliquez de nouveau sur l’action souhaitée.');
+    input.focus();
+    return false;
+  }
+  adminFeedback('Traitement en cours…');
+  try{
+    await betaPost(path,{...payload,password:input.value});
+    return true;
+  }catch(e){
+    adminFeedback(e.message);
+    return false;
+  }
+}
 async function refreshAccounts(){
   const r=await fetch('/api/admin/accounts');if(!r.ok)throw new Error('Accès administrateur indisponible. Reconnectez-vous.');
   const j=await r.json();registrationEnabled=j.enabled;
@@ -415,13 +436,26 @@ async function refreshAccounts(){
     const row=document.createElement('div');row.className='account-row';
     const description=document.createElement('div');description.textContent=(account.email||account.username)+' — '+labels[account.status]+' · conversions sur 1 h : '+(account.conversions_hour||0)+' / 10 · dernière connexion : '+(account.last_login?new Date(account.last_login*1000).toLocaleString('fr-FR'):'Jamais')+(account.expires<253402300799?' · demande expire le '+new Date(account.expires*1000).toLocaleDateString('fr-FR'):'');row.append(description);
     const actions=account.status==='unverified'?[['reject','Refuser']]:account.status==='pending'?[['approve','Approuver'],['reject','Refuser']]:account.status==='active'?[['suspend','Suspendre'],['revoke','Déconnecter']]:account.status==='suspended'?[['reactivate','Réactiver'],['delete','Supprimer']]:account.status==='rejected'?[['delete','Supprimer']]:[];
-    actions.forEach(([action,label])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=async()=>{if(action==='delete'&&!confirm('Supprimer définitivement ce compte ?'))return;b.disabled=true;try{await betaPost('/api/admin/accounts',{username:account.username,action,password:$('#adminPassword').value});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};row.append(b);});list.append(row);
+    actions.forEach(([action,label])=>{
+      const b=document.createElement('button');b.type='button';b.textContent=label;
+      b.onclick=async()=>{
+        if(action==='delete'&&!confirm('Supprimer définitivement ce compte ?'))return;
+        b.disabled=true;
+        try{
+          if(!await adminPost('/api/admin/accounts',{username:account.username,action}))return;
+          const messages={approve:'Compte approuvé. La personne peut maintenant se connecter avec son adresse e-mail et son mot de passe.',reactivate:'Compte réactivé. La personne peut se reconnecter.',reject:'Demande refusée.',suspend:'Compte suspendu.',revoke:'Sessions du compte déconnectées.',delete:'Compte supprimé.'};
+          adminFeedback(messages[action]);
+          try{await refreshAccounts();}catch(e){adminFeedback(messages[action]+' Actualisez la liste pour voir le nouvel état.');}
+        }finally{b.disabled=false;}
+      };
+      row.append(b);
+    });list.append(row);
   });
   const audit=$('#accountAudit');audit.replaceChildren();j.audit.forEach(entry=>{const li=document.createElement('li');li.textContent=new Date(entry.created*1000).toLocaleString('fr-FR')+' · '+(j.accounts.find(a=>a.username===entry.username)?.email||entry.username)+' · '+(labels[entry.action]||entry.action);audit.append(li);});
 }
 $('#adminBtn').onclick=async()=>{$('#profileView').classList.add('hidden');stopLoad();$('#loadView').classList.add('hidden');$('#appView').classList.add('hidden');$('#adminView').classList.remove('hidden');try{await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}};
 $('#adminBack').onclick=()=>{$('#adminView').classList.add('hidden');$('#adminPassword').value='';showApp();};
-$('#registrationToggle').onclick=async()=>{const b=$('#registrationToggle');b.disabled=true;try{await betaPost('/api/admin/registration',{enabled:!registrationEnabled,password:$('#adminPassword').value});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};
+$('#registrationToggle').onclick=async()=>{const b=$('#registrationToggle');b.disabled=true;try{if(!await adminPost('/api/admin/registration',{enabled:!registrationEnabled}))return;adminFeedback('Réglage des inscriptions enregistré.');try{await refreshAccounts();}catch(e){adminFeedback('Réglage enregistré. Actualisez la liste pour voir le nouvel état.');}}finally{b.disabled=false;}};
 
 
 /* Private, read-only service dashboard. */

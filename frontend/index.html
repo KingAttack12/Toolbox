@@ -50,7 +50,8 @@
   <p>Vous seul pouvez accepter une demande. Les comptes approuvés sont durables. Limite : 20 comptes et demandes. Fermer les demandes ne suspend pas les comptes déjà approuvés.</p>
   <p id="mailSetup" role="status"></p>
   <div id="accountStats" class="load-stats"></div>
-  <label>Confirmer les actions sensibles avec votre mot de passe<input id="adminPassword" type="password" autocomplete="current-password" maxlength="128"></label>
+  <label>Votre mot de passe administrateur (obligatoire pour approuver)<input id="adminPassword" type="password" autocomplete="current-password" maxlength="128" aria-describedby="adminPasswordHelp"></label>
+  <p id="adminPasswordHelp">Saisissez le mot de passe de votre compte administrateur, puis cliquez sur « Approuver ». Le compte doit passer à « Actif » pour pouvoir se connecter.</p>
   <label>Rechercher un compte<input id="accountSearch" type="search" placeholder="Adresse e-mail ou identifiant"></label>
   <label>État<select id="accountFilter"><option value="all">Tous</option><option value="unverified">Adresse à confirmer</option><option value="pending">À approuver</option><option value="active">Actifs</option><option value="suspended">Suspendus</option><option value="rejected">Refusés</option></select></label>
   <button id="accountsRefresh" type="button">Actualiser</button>
@@ -127,7 +128,7 @@
   </div>
 </div>
 
-<script src="/static/app.js?v=18"></script>
+<script src="/static/app.js?v=19"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">Code source</a>
