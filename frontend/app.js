@@ -107,7 +107,7 @@ $("#themeBtn").onclick = ()=>{
 async function checkMe(){
   try{
     const r = await fetch("/api/me");
-    if(r.ok){ const me=await r.json(); $("#adminBtn").classList.toggle("hidden",!me.is_admin); $("#loadBtn").classList.toggle("hidden",!me.is_admin); showApp(); return true; }
+    if(r.ok){ const me=await r.json(); $("#adminBtn").classList.toggle("hidden",!me.is_admin); $("#loadBtn").classList.toggle("hidden",!me.is_admin); $("#profileBtn").classList.toggle("hidden",me.is_admin); showApp(); return true; }
   }catch(e){}
   showLogin(); refreshRegistration(); return false;
 }
@@ -381,7 +381,7 @@ function errMsg(j,r){
   try{ return JSON.stringify(j.detail||j).slice(0,400); }catch(e){ return "HTTP "+r.status; }
 }
 
-initTheme(); checkMe();
+
 
 
 /* Account approval beta. No role is inferred from client storage. */
@@ -396,28 +396,32 @@ async function betaPost(path,payload){
 }
 $('#signupForm').onsubmit=async e=>{
   e.preventDefault();const button=e.submitter;button.disabled=true;$('#signupMessage').textContent='Envoi…';
-  try{const j=await betaPost('/api/register',{username:$('#signupUser').value,password:$('#signupPass').value});$('#signupPass').value='';$('#signupMessage').textContent=j.message;}
+  try{const j=await betaPost('/api/register',{email:$('#signupUser').value,password:$('#signupPass').value});$('#signupPass').value='';$('#signupMessage').textContent=j.message;}
   catch(e){$('#signupMessage').textContent=e.message;}finally{button.disabled=false;}
 };
 let registrationEnabled=false;
 async function refreshAccounts(){
   const r=await fetch('/api/admin/accounts');if(!r.ok)throw new Error('Accès administrateur indisponible. Reconnectez-vous.');
   const j=await r.json();registrationEnabled=j.enabled;
-  $('#registrationToggle').textContent=j.enabled?'Fermer les demandes':'Ouvrir les demandes de test';
+  $('#registrationToggle').textContent=j.enabled?'Fermer les demandes':'Ouvrir les demandes';
+  $('#mailSetup').textContent=j.mail_ready?'Envoi d’e-mails configuré.':'Gmail à configurer : inscriptions et récupération indisponibles. Créez une adresse d’envoi puis renseignez les réglages SMTP sur le serveur.';
+  $('#registrationToggle').disabled=!j.mail_ready&&!j.enabled;
+  const stats=$('#accountStats');stats.replaceChildren();
+  [['active','Actifs'],['pending','À approuver'],['unverified','E-mail à confirmer'],['suspended','Suspendus']].forEach(([state,label])=>{const card=document.createElement('article');card.className='load-stat';card.textContent=label+' : '+j.accounts.filter(a=>a.status===state).length;stats.append(card);});
   const list=$('#accountsList');list.replaceChildren();
   if(!j.accounts.length){const p=document.createElement('p');p.textContent='Aucune demande pour le moment.';list.append(p);}
-  const labels={pending:'En attente',active:'Actif',rejected:'Refusé',suspended:'Suspendu'};
-  j.accounts.forEach(account=>{
+  const labels={unverified:'Adresse à confirmer',pending:'En attente',active:'Actif',rejected:'Refusé',suspended:'Suspendu'};
+  j.accounts.filter(a=>($('#accountFilter').value==='all'||a.status===$('#accountFilter').value)&&((a.email||'')+' '+a.username).toLowerCase().includes($('#accountSearch').value.toLowerCase())).forEach(account=>{
     const row=document.createElement('div');row.className='account-row';
-    const description=document.createElement('div');description.textContent=account.username+' — '+labels[account.status]+' · expiration : '+new Date(account.expires*1000).toLocaleDateString('fr-FR');row.append(description);
-    const actions=account.status==='pending'?[['approve','Approuver'],['reject','Refuser']]:account.status==='active'?[['suspend','Suspendre']]:[];
-    actions.forEach(([action,label])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=async()=>{b.disabled=true;try{await betaPost('/api/admin/accounts',{username:account.username,action});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};row.append(b);});list.append(row);
+    const description=document.createElement('div');description.textContent=(account.email||account.username)+' — '+labels[account.status]+' · conversions sur 1 h : '+(account.conversions_hour||0)+' / 10 · dernière connexion : '+(account.last_login?new Date(account.last_login*1000).toLocaleString('fr-FR'):'Jamais')+(account.expires<253402300799?' · demande expire le '+new Date(account.expires*1000).toLocaleDateString('fr-FR'):'');row.append(description);
+    const actions=account.status==='unverified'?[['reject','Refuser']]:account.status==='pending'?[['approve','Approuver'],['reject','Refuser']]:account.status==='active'?[['suspend','Suspendre'],['revoke','Déconnecter']]:account.status==='suspended'?[['reactivate','Réactiver'],['delete','Supprimer']]:account.status==='rejected'?[['delete','Supprimer']]:[];
+    actions.forEach(([action,label])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=async()=>{if(action==='delete'&&!confirm('Supprimer définitivement ce compte ?'))return;b.disabled=true;try{await betaPost('/api/admin/accounts',{username:account.username,action,password:$('#adminPassword').value});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};row.append(b);});list.append(row);
   });
-  const audit=$('#accountAudit');audit.replaceChildren();j.audit.forEach(entry=>{const li=document.createElement('li');li.textContent=new Date(entry.created*1000).toLocaleString('fr-FR')+' · '+entry.username+' · '+(labels[entry.action]||entry.action);audit.append(li);});
+  const audit=$('#accountAudit');audit.replaceChildren();j.audit.forEach(entry=>{const li=document.createElement('li');li.textContent=new Date(entry.created*1000).toLocaleString('fr-FR')+' · '+(j.accounts.find(a=>a.username===entry.username)?.email||entry.username)+' · '+(labels[entry.action]||entry.action);audit.append(li);});
 }
-$('#adminBtn').onclick=async()=>{stopLoad();$('#loadView').classList.add('hidden');$('#appView').classList.add('hidden');$('#adminView').classList.remove('hidden');try{await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}};
-$('#adminBack').onclick=()=>{$('#adminView').classList.add('hidden');showApp();};
-$('#registrationToggle').onclick=async()=>{const b=$('#registrationToggle');b.disabled=true;try{await betaPost('/api/admin/registration',{enabled:!registrationEnabled});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};
+$('#adminBtn').onclick=async()=>{$('#profileView').classList.add('hidden');stopLoad();$('#loadView').classList.add('hidden');$('#appView').classList.add('hidden');$('#adminView').classList.remove('hidden');try{await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}};
+$('#adminBack').onclick=()=>{$('#adminView').classList.add('hidden');$('#adminPassword').value='';showApp();};
+$('#registrationToggle').onclick=async()=>{const b=$('#registrationToggle');b.disabled=true;try{await betaPost('/api/admin/registration',{enabled:!registrationEnabled,password:$('#adminPassword').value});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};
 
 
 /* Private, read-only service dashboard. */
@@ -441,7 +445,7 @@ async function refreshLoad(){
   }catch(e){$('#loadUpdated').textContent=e.message;}
   if(!$('#loadView').classList.contains('hidden'))loadTimer=setTimeout(refreshLoad,5000);
 }
-$('#loadBtn').onclick=()=>{$('#appView').classList.add('hidden');$('#adminView').classList.add('hidden');$('#loadView').classList.remove('hidden');refreshLoad();};
+$('#loadBtn').onclick=()=>{$('#adminPassword').value='';$('#profileView').classList.add('hidden');$('#appView').classList.add('hidden');$('#adminView').classList.add('hidden');$('#loadView').classList.remove('hidden');refreshLoad();};
 $('#loadBack').onclick=()=>{stopLoad();$('#loadView').classList.add('hidden');showApp();};
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopLoad();else if(!$('#loadView').classList.contains('hidden'))refreshLoad();});
 function watchWorkload(tool){
@@ -454,3 +458,18 @@ function watchWorkload(tool){
   timer=setTimeout(poll,1000);
   return ()=>{stopped=true;clearTimeout(timer);label.classList.add('hidden');};
 }
+
+$('#accountSearch').oninput=()=>refreshAccounts().catch(e=>$('#adminMessage').textContent=e.message);
+$('#accountFilter').onchange=$('#accountsRefresh').onclick=()=>refreshAccounts().catch(e=>$('#adminMessage').textContent=e.message);
+$('#recoverOpen').onclick=()=>{$('#loginView').classList.add('hidden');$('#recoveryView').classList.remove('hidden');};
+$('#recoveryBack').onclick=()=>{$('#recoveryView').classList.add('hidden');showLogin();};
+$('#recoveryForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const j=await betaPost('/api/account/email-link',{email:$('#recoveryEmail').value,purpose:$('#recoveryPurpose').value});$('#recoveryMessage').textContent=j.message;}catch(e){$('#recoveryMessage').textContent=e.message;}finally{b.disabled=false;}};
+$('#profileBtn').onclick=async()=>{stopLoad();['appView','adminView','loadView'].forEach(id=>$('#'+id).classList.add('hidden'));$('#profileView').classList.remove('hidden');try{const r=await fetch('/api/me');if(!r.ok)throw new Error('Reconnectez-vous.');const me=await r.json();$('#profileIdentity').textContent=(me.email||me.user)+(me.email&&!me.verified?' — Adresse à confirmer. Utilisez « Renvoyer la confirmation » sur la page de connexion.':'');$('#legacyEmailForm').classList.toggle('hidden',!!me.email);}catch(e){$('#profileMessage').textContent=e.message;}};
+$('#profileBack').onclick=()=>{$('#profileView').classList.add('hidden');showApp();};
+$('#legacyEmailForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const j=await betaPost('/api/account/link-email',{email:$('#legacyEmail').value,password:$('#legacyPassword').value});$('#legacyPassword').value='';$('#profileMessage').textContent=j.message;$('#legacyEmailForm').classList.add('hidden');}catch(e){$('#profileMessage').textContent=e.message;}finally{b.disabled=false;}};
+let accountLink=null;
+$('#authLinkForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{if(!accountLink)throw new Error('Lien déjà utilisé.');const payload={...accountLink};payload.password=$('#resetPassword').value;const j=await betaPost('/api/account/confirm',payload);accountLink=null;$('#resetPassword').value='';$('#authLinkMessage').textContent=j.message;}catch(e){$('#authLinkMessage').textContent=e.message;}finally{b.disabled=false;}};
+initTheme();
+const linkParams=new URLSearchParams(location.hash.slice(1));
+const linkPurpose=linkParams.has('verify')?'verify':linkParams.has('reset')?'reset':null;
+if(linkPurpose){accountLink={purpose:linkPurpose,token:linkParams.get(linkPurpose)};history.replaceState(null,'',location.pathname+location.search);$('#authLinkView').classList.remove('hidden');$('#authLinkTitle').textContent=linkPurpose==='verify'?'Confirmer mon adresse':'Nouveau mot de passe';$('#resetPasswordText').textContent=linkPurpose==='verify'?'Mot de passe choisi pour votre compte':'Nouveau mot de passe';$('#resetPassword').minLength=linkPurpose==='verify'?8:15;$('#resetPassword').autocomplete=linkPurpose==='verify'?'current-password':'new-password';$('#resetPassword').required=true;}else checkMe();

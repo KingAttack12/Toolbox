@@ -77,7 +77,7 @@ Dossier [`deploy/`](deploy/) : tout ce qu'il faut
 ## Confidentialité
 
 - Tes fichiers sont traités **en mémoire sur ton serveur** puis oubliés :
-  rien n'est conservé, rien n'est envoyé ailleurs.
+  les fichiers temporaires sont purgés automatiquement. Les comptes et journaux ont leur propre politique de conservation.
 - Les logs serveur ne contiennent que des métadonnées (IP, date, endpoint),
   jamais le contenu de tes fichiers.
 - Le navigateur garde seulement tes favoris et tes derniers outils utilisés.
@@ -96,23 +96,36 @@ personnel non commercial. Les dépendances citées dans `requirements.txt`
 restent sous leurs licences respectives (MIT, BSD, Apache-2.0, HPND...).
 
 
-### Comptes sur demande — test limité
+### Comptes utilisateurs et administration
 
-Le propriétaire reste l’utilisateur défini par `TOOLBOX_USERNAME` et son mot de passe dans la configuration serveur. Aucun compte créé via l’interface ne devient administrateur.
+Le propriétaire conserve son identifiant `TOOLBOX_USERNAME` et son mot de passe configuré sur le serveur, **sans adresse e-mail**. Les utilisateurs s’inscrivent par e-mail et mot de passe (15 à 128 caractères). Leur adresse est confirmée par lien à usage unique, avec confirmation du mot de passe choisi, puis le propriétaire approuve la demande. Un compte actif n’expire plus automatiquement. Les demandes non traitées expirent après 7 jours.
 
-1. Se connecter avec le compte propriétaire, puis ouvrir **Comptes · test**.
-2. Cliquer sur **Ouvrir les demandes de test** pour afficher le formulaire sur la page de connexion. Les demandes sont fermées par défaut.
-3. Les visiteurs choisissent uniquement un identifiant et un mot de passe (15 à 128 caractères). Les identifiants sont insensibles à la casse ; celui du propriétaire est réservé.
-4. Approuver ou refuser chaque demande. Une approbation donne accès aux outils pendant 7 jours. Une demande non traitée expire après 7 jours. La suspension coupe l’accès dès la prochaine requête authentifiée.
-5. Fermer les demandes termine la collecte ; suspendre individuellement les comptes actifs si nécessaire.
+Le panneau **Administration** propose recherche, filtres par état, compteurs, dernière connexion, validation/refus, suspension/réactivation, révocation des sessions et suppression d’un compte préalablement suspendu/refusé. Les actions exigent le mot de passe actuel du propriétaire. Le panneau **Charge du site** conserve la supervision CPU, mémoire et file de conversion.
 
-Le test accepte au maximum 20 comptes/demandes, et 5 tentatives d’inscription par minute et par IP. Les messages ne confirment pas la disponibilité d’un identifiant. Les mots de passe sont hachés par PBKDF2-SHA256 avec sel aléatoire et 600 000 itérations pour les nouveaux hashes ; le propriétaire conserve son hash compatible. Les décisions exigent une session propriétaire et un en-tête de requête même origine, sans CORS. Les cookies sont HttpOnly, SameSite=Strict et Secure sous HTTPS. La déconnexion invalide le jeton côté serveur.
+La migration SQLite ajoute les colonnes sans recréer les comptes. Les anciens comptes actifs non expirés deviennent durables. Ils peuvent associer une adresse depuis **Mon compte** avec leur mot de passe actuel et une confirmation par e-mail. Sauvegarder `data/accounts.sqlite3` via l’API SQLite backup avant toute mise à jour. La base reste hors du répertoire web ; sauvegardes et `.env` doivent être lisibles seulement par le compte serveur.
 
-La base `data/accounts.sqlite3` doit être sauvegardée et rester hors de tout répertoire web. Elle est indépendante du nettoyage des fichiers temporaires. Les demandes et comptes expirés sont supprimés lors du prochain accès à la base ; les mots de passe hachés des comptes refusés/suspendus sont effacés. Le journal des décisions est conservé 30 jours, avec les 30 dernières entrées visibles. Les sessions restent en mémoire : un redémarrage déconnecte tous les utilisateurs (un seul processus serveur).
+Les liens de confirmation expirent après 24 h, ceux de récupération après 30 min. Seule l’empreinte SHA-256 du jeton est stockée. Les liens utilisent un fragment URL pour éviter d’enregistrer le jeton dans les logs HTTP. Une récupération ne change jamais le statut du compte et révoque les sessions précédentes. La suspension, la réactivation et la déconnexion forcée changent aussi la version des sessions. Les réponses de récupération ne révèlent pas l’existence d’une adresse.
 
-Limites du test : aucun e-mail, vérification d’identité, récupération automatique, MFA ou quota de calcul par utilisateur. Vérifier l’identité des personnes par un autre moyen avant de valider ; choisir des mots de passe uniques. Les comptes approuvés utilisent les mêmes outils que le propriétaire et partagent les ressources de la VM. Avant une ouverture plus large : MFA pour le propriétaire, quotas de calcul, limites globales de requêtes et procédure de récupération.
+Limites : 20 comptes/demandes ; 5 tentatives par minute/IP pour inscription, récupération et confirmation ; au plus 3 demandes d’e-mail par adresse/heure et 60 au total/heure. Les sessions en mémoire expirent après 12 h et au redémarrage ; au plus 5 sessions par compte. Les mots de passe utilisent PBKDF2-SHA256 (600 000 itérations pour les nouveaux). Les cookies sont HttpOnly, SameSite=Strict, Secure sous HTTPS. Les actions utilisent un en-tête réservé au même site, sans CORS. Le journal administrateur est conservé 30 jours. La connexion du propriétaire reste récupérable uniquement via la configuration serveur. MFA/passkeys ne sont pas implémentés ; c’est l’amélioration recommandée pour le propriétaire.
 
-Tests isolés : `pip install -r requirements-dev.txt`, puis `python -m unittest discover -s tests -v`. Ils utilisent une base temporaire et des identifiants factices, sans accéder aux comptes réels.
+#### Activer l’envoi Gmail
+
+L’adresse d’envoi Gmail n’est pas l’identité du compte administrateur. Créer une boîte dédiée, activer la validation en deux étapes et générer un mot de passe d’application si cette option est disponible pour ce compte : https://support.google.com/accounts/answer/185833 .
+
+Renseigner **uniquement dans le `.env` du serveur**, jamais dans le chat ni dans Git :
+
+```ini
+TOOLBOX_PUBLIC_URL=https://mytoolbox.duckdns.org
+TOOLBOX_SMTP_HOST=smtp.gmail.com
+TOOLBOX_SMTP_PORT=587
+TOOLBOX_SMTP_USER=adresse-dediee@gmail.com
+TOOLBOX_SMTP_FROM=adresse-dediee@gmail.com
+TOOLBOX_SMTP_PASSWORD=mot-de-passe-application
+```
+
+Redémarrer `toolbox`, puis vérifier une inscription réelle sur une adresse de test avant d’inviter les personnes. TLS est obligatoire (STARTTLS 587 ou SSL 465). Sans ces paramètres, l’interface indique que Gmail doit être configuré, et les inscriptions/récupérations restent fermées. Un paramétrage présent ne garantit pas la délivrabilité : les échecs sont consignés dans le journal administrateur sans secret ni lien. Le renvoi est manuel et limité ; il n’existe pas encore de file d’e-mails durable.
+
+Tests : `python -m unittest discover -s tests -v` après installation de `requirements-dev.txt`. Base temporaire, identifiants factices et SMTP simulé ; aucun e-mail réel envoyé. Les tests incluent la migration, vérification, approbation, droits, récupération, réutilisation/expiration des jetons, révocation des sessions et les conversions.
 
 
 ### Gestion de charge — test

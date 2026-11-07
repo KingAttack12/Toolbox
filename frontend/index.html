@@ -6,7 +6,7 @@
 <title>Toolbox privée</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232563eb'/%3E%3Cpath d='M17 20h30v8H17zm0 16h13v8H17zm20 0h10v8H37zM29 28h8v8h-8z' fill='white'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#f4f6fb">
-<link rel="stylesheet" href="/static/style.css?v=16">
+<link rel="stylesheet" href="/static/style.css?v=17">
 </head>
 <body>
 <header class="topbar">
@@ -14,7 +14,8 @@
   <div class="top-actions">
     <button id="themeBtn" title="Mode sombre/clair" aria-label="Basculer le thème">🌙</button>
     <button id="loadBtn" class="hidden" type="button">Charge du site</button>
-    <button id="adminBtn" class="hidden" type="button">Comptes · test</button>
+    <button id="adminBtn" class="hidden" type="button">Administration</button>
+    <button id="profileBtn" class="hidden" type="button">Mon compte</button>
     <button id="logoutBtn" class="hidden">Déconnexion</button>
   </div>
 </header>
@@ -24,28 +25,35 @@
   <form id="loginForm" class="card login-card">
     <h2>Connexion</h2>
     <p class="muted">Retrouvez vos outils dans votre espace privé.</p>
-    <label>Utilisateur<input id="loginUser" autocomplete="username" value="admin"></label>
+    <label>Adresse e-mail ou identifiant administrateur<input id="loginUser" autocomplete="username" required maxlength="254"></label>
     <label>Mot de passe<input id="loginPass" type="password" autocomplete="current-password"></label>
     <button type="submit">Se connecter</button>
+    <button id="recoverOpen" type="button" class="linklike">Mot de passe oublié / renvoyer un e-mail</button>
     <p id="loginError" class="error"></p>
-    <button id="signupOpen" class="linklike hidden" type="button">Demander un compte — test</button>
+    <button id="signupOpen" class="linklike hidden" type="button">Demander un compte</button>
   </form>
 </section>
 
 <section id="signupView" class="login-wrap hidden">
   <form id="signupForm" class="card login-card">
     <h2>Demander un compte</h2>
-    <p class="muted">Version test. Le propriétaire doit approuver votre demande. Les comptes de test expirent après 7 jours.</p>
-    <label>Nom d’utilisateur<input id="signupUser" autocomplete="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"><small>3 à 32 lettres, chiffres, points ou tirets. Évitez votre nom complet.</small></label>
-    <label>Mot de passe<input id="signupPass" type="password" autocomplete="new-password" required minlength="15" maxlength="128"><small>15 caractères minimum. Une phrase unique est recommandée. Aucun e-mail n’est demandé et aucune récupération automatique n’est disponible.</small></label>
+    <p class="muted">Confirmez votre adresse e-mail, puis attendez l’approbation du propriétaire. Votre compte restera actif jusqu’à sa suspension.</p>
+    <label>Adresse e-mail<input id="signupUser" type="email" autocomplete="email" required maxlength="254"></label>
+    <label>Mot de passe<input id="signupPass" type="password" autocomplete="new-password" required minlength="15" maxlength="128"><small>15 caractères minimum. Une phrase unique est recommandée. Un lien envoyé à votre adresse permettra de récupérer votre accès.</small></label>
     <button type="submit">Envoyer ma demande</button>
     <p id="signupMessage" role="status"></p>
     <button id="signupBack" type="button" class="linklike">Retour à la connexion</button>
   </form>
 </section>
 <section id="adminView" class="admin-view hidden">
-  <div class="grid-heading"><h1>Comptes — version test</h1><button id="adminBack" type="button">Retour aux outils</button></div>
-  <p>Vous seul pouvez accepter une demande. Chaque compte validé dispose de 7 jours d’accès aux outils. Limite : 20 comptes et demandes. Fermer les demandes ne suspend pas les comptes déjà approuvés.</p>
+  <div class="grid-heading"><h1>Administration des comptes</h1><button id="adminBack" type="button">Retour aux outils</button></div>
+  <p>Vous seul pouvez accepter une demande. Les comptes approuvés sont durables. Limite : 20 comptes et demandes. Fermer les demandes ne suspend pas les comptes déjà approuvés.</p>
+  <p id="mailSetup" role="status"></p>
+  <div id="accountStats" class="load-stats"></div>
+  <label>Confirmer les actions sensibles avec votre mot de passe<input id="adminPassword" type="password" autocomplete="current-password" maxlength="128"></label>
+  <label>Rechercher un compte<input id="accountSearch" type="search" placeholder="Adresse e-mail ou identifiant"></label>
+  <label>État<select id="accountFilter"><option value="all">Tous</option><option value="unverified">Adresse à confirmer</option><option value="pending">À approuver</option><option value="active">Actifs</option><option value="suspended">Suspendus</option><option value="rejected">Refusés</option></select></label>
+  <button id="accountsRefresh" type="button">Actualiser</button>
   <button id="registrationToggle" type="button"></button>
   <p id="adminMessage" role="status"></p>
   <div id="accountsList"></div>
@@ -58,6 +66,14 @@
   <p>Un traitement lourd à la fois, trois places d’attente, attente maximale de 30 secondes. Limite glissante : 10 conversions/heure par utilisateur et 30 pour votre compte. Chaque tentative démarrée compte, même en cas d’erreur.</p>
   <p>Actualisation toutes les 5 secondes. Les compteurs et l’activité sont réinitialisés au redémarrage ; les quotas sont conservés. Les mesures CPU nécessitent deux relevés.</p>
 </section>
+<section id="recoveryView" class="login-wrap hidden"><form id="recoveryForm" class="card login-card">
+<h2>Recevoir un lien</h2><p>La récupération concerne les comptes utilisateurs avec une adresse confirmée. Le compte administrateur sans e-mail conserve sa procédure de récupération sur le serveur.</p>
+<label>Adresse e-mail<input id="recoveryEmail" type="email" autocomplete="email" required maxlength="254"></label>
+<label>Demande<select id="recoveryPurpose"><option value="reset">Réinitialiser le mot de passe</option><option value="verify">Renvoyer la confirmation d’adresse</option></select></label>
+<button type="submit">Envoyer le lien</button><p id="recoveryMessage" role="status"></p><button id="recoveryBack" type="button" class="linklike">Retour</button>
+</form></section>
+<section id="authLinkView" class="login-wrap hidden"><form id="authLinkForm" class="card login-card"><h2 id="authLinkTitle"></h2><label id="resetPasswordLabel"><span id="resetPasswordText">Nouveau mot de passe</span><input id="resetPassword" type="password" autocomplete="new-password" minlength="15" maxlength="128"></label><button type="submit">Confirmer</button><p id="authLinkMessage" role="status"></p><a href="/">Retour à la connexion</a></form></section>
+<section id="profileView" class="admin-view hidden"><div class="grid-heading"><h1>Mon compte</h1><button id="profileBack" type="button">Retour aux outils</button></div><p id="profileIdentity"></p><form id="legacyEmailForm" class="card"><p>Associez une adresse à votre ancien compte. Votre mot de passe actuel et une confirmation par e-mail sont nécessaires.</p><label>Adresse e-mail<input id="legacyEmail" type="email" required maxlength="254" autocomplete="email"></label><label>Mot de passe actuel<input id="legacyPassword" type="password" required maxlength="128" autocomplete="current-password"></label><button type="submit">Associer mon adresse</button></form><p id="profileMessage" role="status"></p></section>
 <!-- App -->
 <main id="appView" class="hidden">
   <aside class="sidebar"><p class="nav-label">BIBLIOTHÈQUE</p></aside>
@@ -111,7 +127,7 @@
   </div>
 </div>
 
-<script src="/static/app.js?v=16"></script>
+<script src="/static/app.js?v=18"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">Code source</a>

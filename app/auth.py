@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import secrets
 import time
+import threading
+_session_lock = threading.RLock()
 from typing import Optional
 
 from fastapi import Cookie, Depends, HTTPException, status
@@ -39,37 +41,47 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-def create_session(username: str) -> str:
-    token = secrets.token_urlsafe(32)
-    _sessions[token] = {"username": username, "expires": time.time() + config.SESSION_TTL_SECONDS}
-    _purge()
+def create_session(username: str, version=None) -> str:
+    if version is None:
+        row=accounts.active(username) if username != config.USERNAME else None
+        version=row['version'] if row else 0
+    token=secrets.token_urlsafe(32)
+    with _session_lock:
+        _purge()
+        existing=[key for key,value in _sessions.items() if value['username']==username]
+        for key in existing[:-4]:_sessions.pop(key,None)
+        _sessions[token]={"username":username,"expires":time.time()+config.SESSION_TTL_SECONDS,"version":version}
     return token
 
 
 def destroy_session(token: Optional[str]) -> None:
-    if token and token in _sessions:
-        del _sessions[token]
+    with _session_lock:_sessions.pop(token,None)
 
 
 def get_session_user(token: Optional[str]) -> Optional[str]:
-    if not token or token not in _sessions:
-        return None
-    sess = _sessions[token]
-    if sess["expires"] < time.time():
-        del _sessions[token]
-        return None
-    username = sess["username"]
-    if username != config.USERNAME and not accounts.active(username):
-        del _sessions[token]
-        return None
-    return username
+    with _session_lock:
+        sess=_sessions.get(token)
+        if not sess:return None
+        if sess['expires']<time.time():_sessions.pop(token,None);return None
+        username=sess['username']
+        if username!=config.USERNAME:
+            row=accounts.active(username)
+            if not row or row['version']!=sess.get('version',0):_sessions.pop(token,None);return None
+        return username
 
 
 def _purge() -> None:
-    now = time.time()
-    expired = [t for t, s in _sessions.items() if s["expires"] < now]
-    for t in expired:
-        del _sessions[t]
+    with _session_lock:
+        for token,session in list(_sessions.items()):
+            if session['expires']<time.time():_sessions.pop(token,None)
+
+
+def authenticate_session(username,password):
+    if username==config.USERNAME:
+        return create_session(username) if check_credentials(username,password) else None
+    row=accounts.active(username)
+    valid=verify_password(password,row['password_hash'] if row else config.PASSWORD_HASH)
+    return create_session(username,version=row['version']) if row and valid else None
 
 
 def get_current_user(
@@ -94,3 +106,10 @@ def get_admin(user: str = Depends(get_current_user)) -> str:
     if user != config.USERNAME:
         raise HTTPException(status_code=403, detail="Accès réservé au propriétaire.")
     return user
+
+
+def revoke_user(username):
+    if username == config.USERNAME: return
+    with accounts.database() as db:
+        db.execute("UPDATE accounts SET version=version+1 WHERE username=?", (username,))
+        db.execute("INSERT INTO audit(username,action,created) VALUES (?,?,?)", (username,"Sessions révoquées",time.time()))
