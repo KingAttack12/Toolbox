@@ -94,3 +94,22 @@ Dossier [`deploy/`](deploy/) : tout ce qu'il faut
 Projet personnel ouvert : utilisation et modification libres pour un usage
 personnel non commercial. Les dépendances citées dans `requirements.txt`
 restent sous leurs licences respectives (MIT, BSD, Apache-2.0, HPND...).
+
+
+### Comptes sur demande — test limité
+
+Le propriétaire reste l’utilisateur défini par `TOOLBOX_USERNAME` et son mot de passe dans la configuration serveur. Aucun compte créé via l’interface ne devient administrateur.
+
+1. Se connecter avec le compte propriétaire, puis ouvrir **Comptes · test**.
+2. Cliquer sur **Ouvrir les demandes de test** pour afficher le formulaire sur la page de connexion. Les demandes sont fermées par défaut.
+3. Les visiteurs choisissent uniquement un identifiant et un mot de passe (15 à 128 caractères). Les identifiants sont insensibles à la casse ; celui du propriétaire est réservé.
+4. Approuver ou refuser chaque demande. Une approbation donne accès aux outils pendant 7 jours. Une demande non traitée expire après 7 jours. La suspension coupe l’accès dès la prochaine requête authentifiée.
+5. Fermer les demandes termine la collecte ; suspendre individuellement les comptes actifs si nécessaire.
+
+Le test accepte au maximum 20 comptes/demandes, et 5 tentatives d’inscription par minute et par IP. Les messages ne confirment pas la disponibilité d’un identifiant. Les mots de passe sont hachés par PBKDF2-SHA256 avec sel aléatoire et 600 000 itérations pour les nouveaux hashes ; le propriétaire conserve son hash compatible. Les décisions exigent une session propriétaire et un en-tête de requête même origine, sans CORS. Les cookies sont HttpOnly, SameSite=Strict et Secure sous HTTPS. La déconnexion invalide le jeton côté serveur.
+
+La base `data/accounts.sqlite3` doit être sauvegardée et rester hors de tout répertoire web. Elle est indépendante du nettoyage des fichiers temporaires. Les demandes et comptes expirés sont supprimés lors du prochain accès à la base ; les mots de passe hachés des comptes refusés/suspendus sont effacés. Le journal des décisions est conservé 30 jours, avec les 30 dernières entrées visibles. Les sessions restent en mémoire : un redémarrage déconnecte tous les utilisateurs (un seul processus serveur).
+
+Limites du test : aucun e-mail, vérification d’identité, récupération automatique, MFA ou quota de calcul par utilisateur. Vérifier l’identité des personnes par un autre moyen avant de valider ; choisir des mots de passe uniques. Les comptes approuvés utilisent les mêmes outils que le propriétaire et partagent les ressources de la VM. Avant une ouverture plus large : MFA pour le propriétaire, quotas de calcul, limites globales de requêtes et procédure de récupération.
+
+Tests isolés : `pip install -r requirements-dev.txt`, puis `python -m unittest discover -s tests -v`. Ils utilisent une base temporaire et des identifiants factices, sans accéder aux comptes réels.

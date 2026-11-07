@@ -9,12 +9,12 @@ from typing import Optional
 
 from fastapi import Cookie, Depends, HTTPException, status
 
-from . import config
+from . import config, accounts
 
 # token -> {"username": str, "expires": float}
 _sessions: dict[str, dict] = {}
 
-_ITERATIONS = 200_000
+_ITERATIONS = 600_000
 
 
 def hash_password(password: str) -> str:
@@ -58,7 +58,11 @@ def get_session_user(token: Optional[str]) -> Optional[str]:
     if sess["expires"] < time.time():
         del _sessions[token]
         return None
-    return sess["username"]
+    username = sess["username"]
+    if username != config.USERNAME and not accounts.active(username):
+        del _sessions[token]
+        return None
+    return username
 
 
 def _purge() -> None:
@@ -78,10 +82,15 @@ def get_current_user(
 
 
 def check_credentials(username: str, password: str) -> bool:
-    if not config.PASSWORD_HASH:
-        return False
-    if not hmac.compare_digest(username, config.USERNAME):
-        # compare_digest anti-timing + vérification factice pour ne pas fuiter l'existence
-        verify_password("factice", config.PASSWORD_HASH)
-        return False
-    return verify_password(password, config.PASSWORD_HASH)
+    if username == config.USERNAME:
+        return bool(config.PASSWORD_HASH) and verify_password(password, config.PASSWORD_HASH)
+    row = accounts.active(username)
+    stored = row[0] if row else config.PASSWORD_HASH
+    valid = verify_password(password, stored) if stored else False
+    return bool(row) and valid
+
+
+def get_admin(user: str = Depends(get_current_user)) -> str:
+    if user != config.USERNAME:
+        raise HTTPException(status_code=403, detail="Accès réservé au propriétaire.")
+    return user

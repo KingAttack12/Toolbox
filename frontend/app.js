@@ -107,9 +107,9 @@ $("#themeBtn").onclick = ()=>{
 async function checkMe(){
   try{
     const r = await fetch("/api/me");
-    if(r.ok){ showApp(); return true; }
+    if(r.ok){ const me=await r.json(); $("#adminBtn").classList.toggle("hidden",!me.is_admin); showApp(); return true; }
   }catch(e){}
-  showLogin(); return false;
+  showLogin(); refreshRegistration(); return false;
 }
 function showLogin(){ $("#loginView").classList.remove("hidden"); $("#appView").classList.add("hidden"); $("#logoutBtn").classList.add("hidden"); }
 function showApp(){ $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden"); $("#logoutBtn").classList.remove("hidden"); renderGrid("all",""); renderRecent(); }
@@ -120,7 +120,7 @@ $("#loginForm").addEventListener("submit", async (e)=>{
   const r = await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({username:$("#loginUser").value,password:$("#loginPass").value})});
   const j = await r.json().catch(()=>({}));
-  if(j.ok){ $("#loginPass").value=""; showApp(); }
+  if(j.ok){ $("#loginPass").value=""; await checkMe(); }
   else $("#loginError").textContent = j.error || "Échec de connexion.";
 });
 $("#logoutBtn").onclick = async ()=>{ await fetch("/api/logout",{method:"POST"}); location.reload(); };
@@ -381,3 +381,39 @@ function errMsg(j,r){
 }
 
 initTheme(); checkMe();
+
+
+/* Account approval beta. No role is inferred from client storage. */
+async function refreshRegistration(){
+  try {const r=await fetch('/api/registration'); const j=await r.json(); $('#signupOpen').classList.toggle('hidden',!j.enabled);} catch(e){$('#signupOpen').classList.add('hidden');}
+}
+$('#signupOpen').onclick=()=>{$('#loginView').classList.add('hidden');$('#signupView').classList.remove('hidden');};
+$('#signupBack').onclick=()=>{$('#signupView').classList.add('hidden');$('#signupPass').value='';showLogin();refreshRegistration();};
+async function betaPost(path,payload){
+  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Toolbox-Request':'1'},body:JSON.stringify(payload)});
+  const j=await r.json(); if(!r.ok)throw new Error(typeof j.detail==='string'?j.detail:j.error||'Demande impossible. Vérifiez les champs puis réessayez.');return j;
+}
+$('#signupForm').onsubmit=async e=>{
+  e.preventDefault();const button=e.submitter;button.disabled=true;$('#signupMessage').textContent='Envoi…';
+  try{const j=await betaPost('/api/register',{username:$('#signupUser').value,password:$('#signupPass').value});$('#signupPass').value='';$('#signupMessage').textContent=j.message;}
+  catch(e){$('#signupMessage').textContent=e.message;}finally{button.disabled=false;}
+};
+let registrationEnabled=false;
+async function refreshAccounts(){
+  const r=await fetch('/api/admin/accounts');if(!r.ok)throw new Error('Accès administrateur indisponible. Reconnectez-vous.');
+  const j=await r.json();registrationEnabled=j.enabled;
+  $('#registrationToggle').textContent=j.enabled?'Fermer les demandes':'Ouvrir les demandes de test';
+  const list=$('#accountsList');list.replaceChildren();
+  if(!j.accounts.length){const p=document.createElement('p');p.textContent='Aucune demande pour le moment.';list.append(p);}
+  const labels={pending:'En attente',active:'Actif',rejected:'Refusé',suspended:'Suspendu'};
+  j.accounts.forEach(account=>{
+    const row=document.createElement('div');row.className='account-row';
+    const description=document.createElement('div');description.textContent=account.username+' — '+labels[account.status]+' · expiration : '+new Date(account.expires*1000).toLocaleDateString('fr-FR');row.append(description);
+    const actions=account.status==='pending'?[['approve','Approuver'],['reject','Refuser']]:account.status==='active'?[['suspend','Suspendre']]:[];
+    actions.forEach(([action,label])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=async()=>{b.disabled=true;try{await betaPost('/api/admin/accounts',{username:account.username,action});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};row.append(b);});list.append(row);
+  });
+  const audit=$('#accountAudit');audit.replaceChildren();j.audit.forEach(entry=>{const li=document.createElement('li');li.textContent=new Date(entry.created*1000).toLocaleString('fr-FR')+' · '+entry.username+' · '+(labels[entry.action]||entry.action);audit.append(li);});
+}
+$('#adminBtn').onclick=async()=>{$('#appView').classList.add('hidden');$('#adminView').classList.remove('hidden');try{await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}};
+$('#adminBack').onclick=()=>{$('#adminView').classList.add('hidden');showApp();};
+$('#registrationToggle').onclick=async()=>{const b=$('#registrationToggle');b.disabled=true;try{await betaPost('/api/admin/registration',{enabled:!registrationEnabled});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};

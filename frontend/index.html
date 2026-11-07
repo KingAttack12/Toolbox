@@ -6,13 +6,14 @@
 <title>Toolbox privée</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232563eb'/%3E%3Cpath d='M17 20h30v8H17zm0 16h13v8H17zm20 0h10v8H37zM29 28h8v8h-8z' fill='white'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#f4f6fb">
-<link rel="stylesheet" href="/static/style.css?v=14">
+<link rel="stylesheet" href="/static/style.css?v=15">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="/" aria-label="Toolbox, accueil"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><path d="M7 10h26v7H7zm0 13h12v7H7zm18 0h8v7h-8zM19 17h7v6h-7z" fill="currentColor"/></svg></span><span>TOOLBOX<small class="sub">Espace personnel</small></span></a>
   <div class="top-actions">
     <button id="themeBtn" title="Mode sombre/clair" aria-label="Basculer le thème">🌙</button>
+    <button id="adminBtn" class="hidden" type="button">Comptes · test</button>
     <button id="logoutBtn" class="hidden">Déconnexion</button>
   </div>
 </header>
@@ -26,9 +27,29 @@
     <label>Mot de passe<input id="loginPass" type="password" autocomplete="current-password"></label>
     <button type="submit">Se connecter</button>
     <p id="loginError" class="error"></p>
+    <button id="signupOpen" class="linklike hidden" type="button">Demander un compte — test</button>
   </form>
 </section>
 
+<section id="signupView" class="login-wrap hidden">
+  <form id="signupForm" class="card login-card">
+    <h2>Demander un compte</h2>
+    <p class="muted">Version test. Le propriétaire doit approuver votre demande. Les comptes de test expirent après 7 jours.</p>
+    <label>Nom d’utilisateur<input id="signupUser" autocomplete="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"><small>3 à 32 lettres, chiffres, points ou tirets. Évitez votre nom complet.</small></label>
+    <label>Mot de passe<input id="signupPass" type="password" autocomplete="new-password" required minlength="15" maxlength="128"><small>15 caractères minimum. Une phrase unique est recommandée. Aucun e-mail n’est demandé et aucune récupération automatique n’est disponible.</small></label>
+    <button type="submit">Envoyer ma demande</button>
+    <p id="signupMessage" role="status"></p>
+    <button id="signupBack" type="button" class="linklike">Retour à la connexion</button>
+  </form>
+</section>
+<section id="adminView" class="admin-view hidden">
+  <div class="grid-heading"><h1>Comptes — version test</h1><button id="adminBack" type="button">Retour aux outils</button></div>
+  <p>Vous seul pouvez accepter une demande. Chaque compte validé dispose de 7 jours d’accès aux outils. Limite : 20 comptes et demandes. Fermer les demandes ne suspend pas les comptes déjà approuvés.</p>
+  <button id="registrationToggle" type="button"></button>
+  <p id="adminMessage" role="status"></p>
+  <div id="accountsList"></div>
+  <h2>Dernières décisions</h2><ul id="accountAudit"></ul>
+</section>
 <!-- App -->
 <main id="appView" class="hidden">
   <aside class="sidebar"><p class="nav-label">BIBLIOTHÈQUE</p></aside>
@@ -81,7 +102,7 @@
   </div>
 </div>
 
-<script src="/static/app.js?v=14"></script>
+<script src="/static/app.js?v=15"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">Code source</a>
