@@ -16,9 +16,10 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 
+from ..workload import HeavyRoute
 from ..auth import get_current_user
 
-router = APIRouter(prefix="/api/tools/pdf", tags=["pdf"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/tools/pdf", tags=["pdf"], dependencies=[Depends(get_current_user)], route_class=HeavyRoute)
 
 MAX_PDF_BYTES = 50 * 1024 * 1024
 MAX_FILES = 20
@@ -86,7 +87,7 @@ def _pdf_response(buf: bytes, filename: str) -> Response:
 
 
 @router.post("/merge")
-async def merge(files: list[UploadFile] = File(...)):
+def merge(files: list[UploadFile] = File(...)):
     if not 2 <= len(files) <= MAX_FILES:
         raise HTTPException(status_code=400, detail=f"Envoyez 2 à {MAX_FILES} PDF.")
     from pypdf import PdfWriter
@@ -94,7 +95,7 @@ async def merge(files: list[UploadFile] = File(...)):
     writer = PdfWriter()
     total = 0
     for f in files:
-        data = _read_upload(await f.read(), f.filename or "pdf")
+        data = _read_upload(f.file.read(), f.filename or "pdf")
         reader = _open_reader(data)
         for page in reader.pages:
             writer.add_page(page)
@@ -107,11 +108,11 @@ async def merge(files: list[UploadFile] = File(...)):
 
 
 @router.post("/split")
-async def split(
+def split(
     file: UploadFile = File(...),
     pages: str = Form("all"),
 ):
-    data = _read_upload(await file.read(), file.filename or "pdf")
+    data = _read_upload(file.file.read(), file.filename or "pdf")
     reader = _open_reader(data)
     from pypdf import PdfWriter
 
@@ -125,14 +126,14 @@ async def split(
 
 
 @router.post("/rotate")
-async def rotate(
+def rotate(
     file: UploadFile = File(...),
     pages: str = Form("all"),
     angle: int = Form(90),
 ):
     if angle not in (90, 180, 270):
         raise HTTPException(status_code=400, detail="Angle : 90, 180 ou 270.")
-    data = _read_upload(await file.read(), file.filename or "pdf")
+    data = _read_upload(file.file.read(), file.filename or "pdf")
     reader = _open_reader(data)
     from pypdf import PdfWriter
 
@@ -148,14 +149,14 @@ async def rotate(
 
 
 @router.post("/to-images")
-async def to_images(
+def to_images(
     file: UploadFile = File(...),
     dpi: int = Form(150),
     format: Literal["png", "jpg"] = Form("png"),
 ):
     if dpi not in (72, 100, 150, 200, 300):
         raise HTTPException(status_code=400, detail="DPI : 72, 100, 150, 200 ou 300.")
-    data = _read_upload(await file.read(), file.filename or "pdf")
+    data = _read_upload(file.file.read(), file.filename or "pdf")
     try:
         import pymupdf
     except ImportError:
@@ -166,14 +167,21 @@ async def to_images(
         raise HTTPException(status_code=400, detail="PDF illisible.")
     if len(doc) > 50:
         raise HTTPException(status_code=400, detail="Trop de pages (max 50).")
+    total_pixels = 0
     zbuf = io.BytesIO()
     with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as z:
         for i, page in enumerate(doc):
+            pixels = page.rect.width * page.rect.height * (dpi / 72) ** 2
+            total_pixels += pixels
+            if pixels > 20_000_000 or total_pixels > 80_000_000:
+                doc.close()
+                raise HTTPException(413, "Rendu trop volumineux. Réduisez le DPI ou le nombre de pages.")
             pix = page.get_pixmap(dpi=dpi)
             if format == "png":
                 z.writestr(f"page-{i + 1:03d}.png", pix.tobytes("png"))
             else:
                 z.writestr(f"page-{i + 1:03d}.jpg", pix.tobytes("jpg", jpg_quality=85))
+    doc.close()
     return Response(
         content=zbuf.getvalue(),
         media_type="application/zip",
@@ -182,7 +190,7 @@ async def to_images(
 
 
 @router.post("/from-images")
-async def from_images(files: list[UploadFile] = File(...)):
+def from_images(files: list[UploadFile] = File(...)):
     if not 1 <= len(files) <= MAX_FILES:
         raise HTTPException(status_code=400, detail=f"Envoyez 1 à {MAX_FILES} images.")
     from PIL import Image
@@ -190,7 +198,7 @@ async def from_images(files: list[UploadFile] = File(...)):
     Image.MAX_IMAGE_PIXELS = 50_000_000
     imgs = []
     for f in files:
-        data = _read_upload(await f.read(), f.filename or "image")
+        data = _read_upload(f.file.read(), f.filename or "image")
         try:
             img = Image.open(io.BytesIO(data))
             img.load()
@@ -203,11 +211,11 @@ async def from_images(files: list[UploadFile] = File(...)):
 
 
 @router.post("/metadata")
-async def metadata(
+def metadata(
     file: UploadFile = File(...),
     strip: bool = Form(False),
 ):
-    data = _read_upload(await file.read(), file.filename or "pdf")
+    data = _read_upload(file.file.read(), file.filename or "pdf")
     reader = _open_reader(data)
     info = {str(k).lstrip("/"): str(v)[:500] for k, v in (reader.metadata or {}).items()}
     result = {"pages": len(reader.pages), "metadata": info}
@@ -226,10 +234,10 @@ async def metadata(
 
 
 @router.post("/compress")
-async def compress(file: UploadFile = File(...)):
+def compress(file: UploadFile = File(...)):
     """Réenregistrement optimisé (déduplique les objets). Gain modeste :
     la vraie compression image (Ghostscript) viendra plus tard."""
-    data = _read_upload(await file.read(), file.filename or "pdf")
+    data = _read_upload(file.file.read(), file.filename or "pdf")
     reader = _open_reader(data)
     from pypdf import PdfWriter
 

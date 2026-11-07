@@ -8,18 +8,17 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 
+from ..workload import HeavyRoute
 from ..auth import get_current_user
 from .tools_media import _ffmpeg_bin
 
-router = APIRouter(prefix="/api/tools/youtube", tags=["youtube-mp3-beta"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/tools/youtube", tags=["youtube-mp3-beta"], dependencies=[Depends(get_current_user)], route_class=HeavyRoute)
 
 MAX_DURATION_SECONDS = 20 * 60
 MAX_SOURCE_BYTES = 120 * 1024 * 1024
@@ -27,7 +26,6 @@ MAX_OUTPUT_BYTES = 60 * 1024 * 1024
 DOWNLOAD_TIMEOUT_SECONDS = 240
 ALLOWED_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
 VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
-_DOWNLOAD_SLOT = threading.BoundedSemaphore(1)
 
 
 def _validate_youtube_url(value: str) -> str:
@@ -152,7 +150,7 @@ with YoutubeDL(options) as ydl:
 
 
 @router.post("/mp3")
-async def youtube_to_mp3(
+def youtube_to_mp3(
     url: str = Form(...),
     bitrate: str = Form("128"),
     authorized: bool = Form(False),
@@ -162,12 +160,7 @@ async def youtube_to_mp3(
         raise HTTPException(status_code=400, detail="Qualité MP3 : 128 ou 192 kb/s.")
     if not authorized:
         raise HTTPException(status_code=400, detail="Confirmez que le téléchargement de cette vidéo est explicitement autorisé.")
-    if not _DOWNLOAD_SLOT.acquire(blocking=False):
-        raise HTTPException(status_code=429, detail="Un téléchargement est déjà en cours. Réessayez dans un instant.")
-    try:
-        result = await run_in_threadpool(_download_mp3, url, bitrate)
-    finally:
-        _DOWNLOAD_SLOT.release()
+    result = _download_mp3(url, bitrate)
     return Response(
         content=result,
         media_type="audio/mpeg",

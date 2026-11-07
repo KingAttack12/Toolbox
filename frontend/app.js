@@ -107,7 +107,7 @@ $("#themeBtn").onclick = ()=>{
 async function checkMe(){
   try{
     const r = await fetch("/api/me");
-    if(r.ok){ const me=await r.json(); $("#adminBtn").classList.toggle("hidden",!me.is_admin); showApp(); return true; }
+    if(r.ok){ const me=await r.json(); $("#adminBtn").classList.toggle("hidden",!me.is_admin); $("#loadBtn").classList.toggle("hidden",!me.is_admin); showApp(); return true; }
   }catch(e){}
   showLogin(); refreshRegistration(); return false;
 }
@@ -230,6 +230,7 @@ $("#toolRun").onclick=async ()=>{
   try{ payload=collectPayload(t); }catch(e){ $("#toolError").textContent=e.message; return; }
   $("#toolProgress").classList.remove("hidden");
   $("#toolRun").disabled=true; $("#toolRun").textContent="Traitement…";
+  const stopWorkload = watchWorkload(t);
   try{
     if(t.custom==="anime") await runAnime(payload);
     else if(t.custom==="discover") await runDiscover(payload,true);
@@ -274,7 +275,7 @@ $("#toolRun").onclick=async ()=>{
     recent=[t.id,...recent.filter(x=>x!==t.id)].slice(0,5);
     storeSet("tb_recent",recent); renderRecent();
   }catch(e){ $("#toolError").textContent="❌ "+e.message; }
-  finally{ $("#toolProgress").classList.add("hidden"); $("#toolRun").disabled=false; $("#toolRun").textContent="Exécuter"; }
+  finally{ stopWorkload(); $("#toolProgress").classList.add("hidden"); $("#toolRun").disabled=false; $("#toolRun").textContent="Exécuter"; }
 };
 
 $("#copyOutput").onclick=async()=>{
@@ -414,6 +415,42 @@ async function refreshAccounts(){
   });
   const audit=$('#accountAudit');audit.replaceChildren();j.audit.forEach(entry=>{const li=document.createElement('li');li.textContent=new Date(entry.created*1000).toLocaleString('fr-FR')+' · '+entry.username+' · '+(labels[entry.action]||entry.action);audit.append(li);});
 }
-$('#adminBtn').onclick=async()=>{$('#appView').classList.add('hidden');$('#adminView').classList.remove('hidden');try{await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}};
+$('#adminBtn').onclick=async()=>{stopLoad();$('#loadView').classList.add('hidden');$('#appView').classList.add('hidden');$('#adminView').classList.remove('hidden');try{await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}};
 $('#adminBack').onclick=()=>{$('#adminView').classList.add('hidden');showApp();};
 $('#registrationToggle').onclick=async()=>{const b=$('#registrationToggle');b.disabled=true;try{await betaPost('/api/admin/registration',{enabled:!registrationEnabled});await refreshAccounts();}catch(e){$('#adminMessage').textContent=e.message;}finally{b.disabled=false;}};
+
+
+/* Private, read-only service dashboard. */
+let loadTimer=null;
+function stopLoad(){clearTimeout(loadTimer);loadTimer=null;}
+function sizeLabel(bytes){return bytes==null?'Indisponible':bytes>=1024**3?(bytes/1024**3).toFixed(1)+' Go':(bytes/1024**2).toFixed(0)+' Mo';}
+function percentLabel(value){return value==null?'Mesure en cours…':value.toFixed(1)+' %';}
+async function refreshLoad(){
+  stopLoad();
+  if($('#loadView').classList.contains('hidden')||document.hidden)return;
+  try{
+    const r=await fetch('/api/admin/load',{cache:'no-store'});if(!r.ok)throw new Error(r.status===403||r.status===401?'Accès réservé au propriétaire. Reconnectez-vous.':'Mesures indisponibles.');
+    const m=await r.json();const stats=$('#loadStats');stats.replaceChildren();
+    const values=[['Processeur · site',percentLabel(m.cpu_service_percent),'Part de la limite de '+(m.service.cpu_cores??'—')+' cœur(s)'],['Mémoire · site',sizeLabel(m.service.used),'/ '+sizeLabel(m.service.limit)+' autorisés'],['Processeur · VM',percentLabel(m.cpu_vm_percent),m.cpu_count+' cœurs au total'],['Mémoire · VM',sizeLabel(m.memory_vm.used),'/ '+sizeLabel(m.memory_vm.total)],['Disque disponible',sizeLabel(m.disk.free),'/ '+sizeLabel(m.disk.total)],['Conversions terminées',String(m.workload.completed),m.workload.failed+' échec(s) · '+m.workload.rejected+' refus de file']];
+    values.forEach(([label,value,note])=>{const article=document.createElement('article');article.className='load-stat';const title=document.createElement('span');title.textContent=label;const number=document.createElement('strong');number.textContent=value;const detail=document.createElement('small');detail.textContent=note;article.append(title,number,detail);stats.append(article);});
+    const queue=$('#loadQueue');queue.replaceChildren();
+    const rows=[...(m.workload.running?[['En cours',m.workload.running]]:[]),...m.workload.waiting.map((entry,i)=>['En attente · '+(i+1),entry])];
+    if(!rows.length){const p=document.createElement('p');p.textContent='Aucune conversion en cours.';queue.append(p);}
+    rows.forEach(([state,entry])=>{const div=document.createElement('div');div.className='account-row';div.textContent=state+' — '+entry.user+' · '+entry.tool.split('/').slice(-2).join(' / ');queue.append(div);});
+    $('#loadUpdated').textContent='Dernier relevé : '+new Date(m.sampled_at*1000).toLocaleTimeString('fr-FR');
+  }catch(e){$('#loadUpdated').textContent=e.message;}
+  if(!$('#loadView').classList.contains('hidden'))loadTimer=setTimeout(refreshLoad,5000);
+}
+$('#loadBtn').onclick=()=>{$('#appView').classList.add('hidden');$('#adminView').classList.add('hidden');$('#loadView').classList.remove('hidden');refreshLoad();};
+$('#loadBack').onclick=()=>{stopLoad();$('#loadView').classList.add('hidden');showApp();};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopLoad();else if(!$('#loadView').classList.contains('hidden'))refreshLoad();});
+function watchWorkload(tool){
+  let timer=null,stopped=false,busy=false;
+  const heavy=['pdf','img','media'].includes(tool.cat);
+  const label=$('#workloadStatus');
+  if(!heavy)return ()=>{};
+  label.textContent='Envoi du fichier ou attente de votre tour…';label.classList.remove('hidden');
+  const poll=async()=>{if(stopped||busy)return;busy=true;try{const r=await fetch('/api/tools/workload',{cache:'no-store'});if(r.ok){const j=await r.json();if(!stopped)label.textContent=j.state==='running'?'Conversion en cours…':j.state==='waiting'?'En attente — position '+j.position+' dans la file.':'Envoi du fichier ou finalisation…';}}catch(e){}finally{busy=false;if(!stopped)timer=setTimeout(poll,2000);}};
+  timer=setTimeout(poll,1000);
+  return ()=>{stopped=true;clearTimeout(timer);label.classList.add('hidden');};
+}

@@ -113,3 +113,14 @@ La base `data/accounts.sqlite3` doit être sauvegardée et rester hors de tout r
 Limites du test : aucun e-mail, vérification d’identité, récupération automatique, MFA ou quota de calcul par utilisateur. Vérifier l’identité des personnes par un autre moyen avant de valider ; choisir des mots de passe uniques. Les comptes approuvés utilisent les mêmes outils que le propriétaire et partagent les ressources de la VM. Avant une ouverture plus large : MFA pour le propriétaire, quotas de calcul, limites globales de requêtes et procédure de récupération.
 
 Tests isolés : `pip install -r requirements-dev.txt`, puis `python -m unittest discover -s tests -v`. Ils utilisent une base temporaire et des identifiants factices, sans accéder aux comptes réels.
+
+
+### Gestion de charge — test
+
+Toutes les conversions PDF, images, Word/OCR et audio utilisent une file FIFO commune : un traitement actif et trois places d’attente, une seule demande par personne (identifiants insensibles à la casse), attente maximale de 30 s avant HTTP 429. Les traitements sont exécutés dans les threads de FastAPI pour laisser l’API et l’administration répondre. Ce mécanisme nécessite **un seul processus Uvicorn** comme dans le service fourni. Il ne constitue pas un système de tâches durable : les requêtes dépendent de leur connexion HTTP ; un redémarrage supprime la file.
+
+Quotas persistants SQLite sur une heure glissante : 10 tentatives démarrées par utilisateur, 30 pour le propriétaire. Les erreurs de fichier et de validation après admission consomment un essai ; les refus de file et délais d’attente n’en consomment pas. Le quota limite les lancements, pas la durée totale de calcul. Les outils texte/calcul ne sont pas concernés. La limite d’upload MP3 est alignée à 50 Mo ; le rendu PDF en images limite également les pixels traités.
+
+Le bouton propriétaire **Charge du site** actualise toutes les 5 s les CPU VM et site (ce dernier en proportion de son quota cgroup), mémoire VM et service, espace disque, tâches en cours/en attente et compteurs depuis le démarrage. La première mesure CPU est vide. Ces métriques nécessitent Linux et cgroup v2 pour les données du service ; une valeur absente est affichée indisponible. `/api/admin/load` exige le propriétaire et ne retourne ni jeton ni fichier. `/api/tools/workload` ne retourne à l’utilisateur que son état et sa place. La consultation ne demande aucune permission système supplémentaire.
+
+La file sérialise les calculs lourds, sans garantir qu’un fichier individuel reste sous la limite mémoire du service ; il faut encore surveiller les cas réels et les éventuels arrêts mémoire. Une file durable, l’isolation des conversions dans des processus et des budgets de temps CPU seront les étapes suivantes si l’usage augmente.

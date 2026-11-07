@@ -10,9 +10,10 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 
+from ..workload import HeavyRoute
 from ..auth import get_current_user
 
-router = APIRouter(prefix="/api/tools/image", tags=["images"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/tools/image", tags=["images"], dependencies=[Depends(get_current_user)], route_class=HeavyRoute)
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 OUTPUTS = {
@@ -43,7 +44,7 @@ def _load_image(data: bytes):
 
 
 @router.post("/convert")
-async def convert(
+def convert(
     file: UploadFile = File(...),
     format: Literal["jpg", "png", "webp"] = Form("jpg"),
     quality: int = Form(85),
@@ -53,7 +54,7 @@ async def convert(
     grayscale: bool = Form(False),
     strip_exif: bool = Form(True),
 ):
-    data = await file.read(MAX_IMAGE_BYTES + 1)
+    data = file.file.read(MAX_IMAGE_BYTES + 1)
     img = _load_image(data)
     from PIL import Image
 

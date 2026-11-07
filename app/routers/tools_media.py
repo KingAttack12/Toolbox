@@ -12,11 +12,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from .. import jobs
+from ..workload import HeavyRoute
 from ..auth import get_current_user
 
-router = APIRouter(prefix="/api/tools/media", tags=["media"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/tools/media", tags=["media"], dependencies=[Depends(get_current_user)], route_class=HeavyRoute)
 
-MAX_FILESIZE = 500 * 1024 * 1024
+MAX_FILESIZE = 50 * 1024 * 1024
 
 
 def _ffmpeg_bin() -> str:
@@ -35,7 +36,7 @@ def _ffmpeg_bin() -> str:
 
 
 @router.post("/mp4-to-mp3")
-async def mp4_to_mp3(
+def mp4_to_mp3(
     file: UploadFile = File(...),
     bitrate: Literal["128", "192", "320"] = Form("192"),
 ):
@@ -43,11 +44,11 @@ async def mp4_to_mp3(
     liste d'arguments (jamais de shell), timeout 5 min."""
     import subprocess
 
-    data = await file.read(MAX_FILESIZE + 1)
+    data = file.file.read(MAX_FILESIZE + 1)
     if not data:
         raise HTTPException(status_code=400, detail="Fichier vide.")
     if len(data) > MAX_FILESIZE:
-        raise HTTPException(status_code=413, detail="Fichier trop lourd (max 500 Mo).")
+        raise HTTPException(status_code=413, detail="Fichier trop lourd (max 50 Mo).")
     ffmpeg = _ffmpeg_bin()
     job = jobs.create_job("mp3")
     d = jobs.task_dir(job.id)
@@ -59,7 +60,7 @@ async def mp4_to_mp3(
     try:
         subprocess.run(
             [ffmpeg, "-y", "-v", "error", "-i", str(src), "-vn",
-             "-c:a", "libmp3lame", "-b:a", f"{bitrate}k", str(dst)],
+             "-threads", "1", "-c:a", "libmp3lame", "-b:a", f"{bitrate}k", str(dst)],
             timeout=300, check=True, capture_output=True,
         )
     except subprocess.TimeoutExpired:

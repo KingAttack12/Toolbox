@@ -7,37 +7,24 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
 import pymupdf
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 
+from ..workload import HeavyRoute
 from ..auth import get_current_user
 from .tools_pdf import MAX_PDF_BYTES, _open_reader, _read_upload
 
-router = APIRouter(prefix="/api/tools/office", tags=["word-pdf-ocr"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/tools/office", tags=["word-pdf-ocr"], dependencies=[Depends(get_current_user)], route_class=HeavyRoute)
 
 MAX_PDF_PAGES = 100
 MAX_OCR_PAGES = 20
 MAX_DOCX_UNPACKED_BYTES = 100 * 1024 * 1024
 MAX_DOCX_MEMBERS = 2_000
-_HEAVY_JOB = threading.BoundedSemaphore(1)
-
-
-def _limited_job(fn, *args):
-    if not _HEAVY_JOB.acquire(blocking=False):
-        raise HTTPException(status_code=429, detail="Un autre traitement Word/PDF ou OCR est en cours. Réessayez dans un instant.")
-    try:
-        return fn(*args)
-    finally:
-        _HEAVY_JOB.release()
-
-
 def _validate_docx(data: bytes) -> None:
     if not data:
         raise HTTPException(status_code=400, detail="Fichier Word vide.")
@@ -198,23 +185,23 @@ def _ocr_pdf(data: bytes, language: str, dpi: int) -> bytes:
 
 
 @router.post("/word-to-pdf")
-async def word_to_pdf(file: UploadFile = File(...)):
-    data = await file.read(MAX_PDF_BYTES + 1)
+def word_to_pdf(file: UploadFile = File(...)):
+    data = file.file.read(MAX_PDF_BYTES + 1)
     _validate_docx(data)
-    result = await run_in_threadpool(_limited_job, _convert_docx_to_pdf, data)
+    result = _convert_docx_to_pdf(data)
     return _file_response(result, "application/pdf", "document.pdf")
 
 
 @router.post("/pdf-to-word")
-async def pdf_to_word(file: UploadFile = File(...)):
-    data = await file.read(MAX_PDF_BYTES + 1)
+def pdf_to_word(file: UploadFile = File(...)):
+    data = file.file.read(MAX_PDF_BYTES + 1)
     _validate_pdf(data)
-    result = await run_in_threadpool(_limited_job, _convert_pdf_to_docx, data)
+    result = _convert_pdf_to_docx(data)
     return _file_response(result, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "document.docx")
 
 
 @router.post("/ocr")
-async def ocr_pdf(
+def ocr_pdf(
     file: UploadFile = File(...),
     language: str = Form("fra"),
     dpi: int = Form(150),
@@ -223,9 +210,9 @@ async def ocr_pdf(
         raise HTTPException(status_code=400, detail="Langue OCR : français, anglais ou français + anglais.")
     if dpi not in {100, 150, 200}:
         raise HTTPException(status_code=400, detail="Résolution OCR : 100, 150 ou 200 DPI.")
-    data = await file.read(MAX_PDF_BYTES + 1)
+    data = file.file.read(MAX_PDF_BYTES + 1)
     pages = _validate_pdf(data)
     if pages > MAX_OCR_PAGES:
         raise HTTPException(status_code=400, detail=f"OCR limité à {MAX_OCR_PAGES} pages par fichier.")
-    result = await run_in_threadpool(_limited_job, _ocr_pdf, data, language, dpi)
+    result = _ocr_pdf(data, language, dpi)
     return _file_response(result, "text/plain; charset=utf-8", "texte-ocr.txt")

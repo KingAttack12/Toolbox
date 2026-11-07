@@ -6,13 +6,14 @@
 <title>Toolbox privée</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232563eb'/%3E%3Cpath d='M17 20h30v8H17zm0 16h13v8H17zm20 0h10v8H37zM29 28h8v8h-8z' fill='white'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#f4f6fb">
-<link rel="stylesheet" href="/static/style.css?v=15">
+<link rel="stylesheet" href="/static/style.css?v=16">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="/" aria-label="Toolbox, accueil"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><path d="M7 10h26v7H7zm0 13h12v7H7zm18 0h8v7h-8zM19 17h7v6h-7z" fill="currentColor"/></svg></span><span>TOOLBOX<small class="sub">Espace personnel</small></span></a>
   <div class="top-actions">
     <button id="themeBtn" title="Mode sombre/clair" aria-label="Basculer le thème">🌙</button>
+    <button id="loadBtn" class="hidden" type="button">Charge du site</button>
     <button id="adminBtn" class="hidden" type="button">Comptes · test</button>
     <button id="logoutBtn" class="hidden">Déconnexion</button>
   </div>
@@ -49,6 +50,13 @@
   <p id="adminMessage" role="status"></p>
   <div id="accountsList"></div>
   <h2>Dernières décisions</h2><ul id="accountAudit"></ul>
+</section>
+<section id="loadView" class="admin-view hidden">
+  <div class="grid-heading"><h1>Charge du site</h1><button id="loadBack" type="button">Retour aux outils</button></div>
+  <p id="loadUpdated" role="status">Chargement…</p><div id="loadStats" class="load-stats"></div>
+  <h2>Conversions en cours et en attente</h2><div id="loadQueue"></div>
+  <p>Un traitement lourd à la fois, trois places d’attente, attente maximale de 30 secondes. Limite glissante : 10 conversions/heure par utilisateur et 30 pour votre compte. Chaque tentative démarrée compte, même en cas d’erreur.</p>
+  <p>Actualisation toutes les 5 secondes. Les compteurs et l’activité sont réinitialisés au redémarrage ; les quotas sont conservés. Les mesures CPU nécessitent deux relevés.</p>
 </section>
 <!-- App -->
 <main id="appView" class="hidden">
@@ -94,6 +102,7 @@
       <button id="toolRun" class="primary">Exécuter</button>
       <button id="toolFav">☆ Favori</button>
     </div>
+    <p id="workloadStatus" class="muted hidden" role="status"></p>
     <div id="toolProgress" class="progress hidden"><div></div></div>
     <div id="outputWrap" class="output-wrap hidden"><div class="output-toolbar"><span>RÉSULTAT</span><button id="copyOutput" type="button">Copier</button></div><pre id="toolOutput" class="output" placeholder="Résultat..."></pre></div>
     <div id="toolResults" class="anime-results hidden"></div>
@@ -102,7 +111,7 @@
   </div>
 </div>
 
-<script src="/static/app.js?v=15"></script>
+<script src="/static/app.js?v=16"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">Code source</a>
