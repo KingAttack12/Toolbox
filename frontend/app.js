@@ -91,6 +91,18 @@ const favs = new Set(storeGet("tb_favs",[]));
 let recent = storeGet("tb_recent",[]);
 
 /* ---------- thème ---------- */
+const menuToggle=$('#menuToggle');
+function closeMenu(){
+  document.querySelector('.topbar').classList.remove('menu-open');
+  menuToggle.setAttribute('aria-expanded','false');
+}
+menuToggle.onclick=()=>{
+  const open=menuToggle.getAttribute('aria-expanded')!=='true';
+  document.querySelector('.topbar').classList.toggle('menu-open',open);
+  menuToggle.setAttribute('aria-expanded',String(open));
+};
+$('#topActions').addEventListener('click',e=>{if(e.target.closest('button'))closeMenu();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menuToggle.getAttribute('aria-expanded')==='true'){closeMenu();menuToggle.focus();}});
 function initTheme(){
   let t; try{ t=localStorage.getItem("tb_theme"); }catch(e){ t=null; }
   t=t||"light";
