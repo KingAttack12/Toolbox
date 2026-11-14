@@ -7,7 +7,7 @@
 <title>Toolbox privée</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232563eb'/%3E%3Cpath d='M17 20h30v8H17zm0 16h13v8H17zm20 0h10v8H37zM29 28h8v8h-8z' fill='white'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#f4f6fb">
-<link rel="stylesheet" href="/static/style.css?v=19">
+<link rel="stylesheet" href="/static/style.css?v=20">
 </head>
 <body>
 <header class="topbar">
@@ -95,6 +95,25 @@
     <div><span class="eyebrow">VOTRE ESPACE DE TRAVAIL</span><h1>La boîte à outils.</h1><p>Documents, conversions et utilitaires du quotidien.</p></div>
     <span class="private-badge">Accès privé</span>
   </section>
+  <section id="quickConvert" class="quick-convert" aria-labelledby="convertTitle">
+    <h2 id="convertTitle">Convertir un fichier</h2>
+    <p class="muted">Déposez votre fichier, puis choisissez le format de sortie.</p>
+    <div id="convertDrop" class="convert-drop">
+      <span aria-hidden="true" class="convert-icon">↥</span>
+      <p>Glissez vos fichiers ici</p>
+      <button id="convertChoose" type="button">Choisir un fichier</button>
+      <input id="convertFiles" type="file" class="hidden" multiple accept=".pdf,.docx,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff,.mp4,.mov,.m4v,.webm,.mkv,.avi">
+      <small>PDF, Word (.docx), images ou vidéos · 50 Mo max par envoi, 20 Mo par image.</small>
+    </div>
+    <form id="convertForm" class="hidden">
+      <div class="convert-selection"><p id="convertSelection"></p><button id="convertReset" type="button">Changer de fichier</button></div>
+      <div class="convert-controls"><label>Convertir en<select id="convertFormat" required aria-describedby="convertHint"></select></label><button id="convertRun" type="submit">Convertir</button></div>
+      <p id="convertHint" class="muted"></p>
+    </form>
+    <p id="convertStatus" role="status" aria-live="polite"></p>
+    <p id="convertError" class="error" role="alert"></p>
+    <a id="convertDownload" class="btn hidden" download>Télécharger le fichier converti</a>
+  </section>
   <div class="searchbar">
     <span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Rechercher un outil…" aria-label="Rechercher un outil"><kbd>Ctrl K</kbd>
   </div>
@@ -142,6 +161,7 @@
 
 <script src="/static/app.js?v=21"></script>
 <script src="/static/news.js?v=1"></script>
+<script src="/static/convert.js?v=1"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">Code source</a>
