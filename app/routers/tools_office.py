@@ -216,3 +216,51 @@ def ocr_pdf(
         raise HTTPException(status_code=400, detail=f"OCR limité à {MAX_OCR_PAGES} pages par fichier.")
     result = _ocr_pdf(data, language, dpi)
     return _file_response(result, "text/plain; charset=utf-8", "texte-ocr.txt")
+
+
+@router.post("/pdf-text")
+def pdf_text(file: UploadFile = File(...)):
+    data = file.file.read(MAX_PDF_BYTES + 1)
+    _validate_pdf(data)
+    with pymupdf.open(stream=data, filetype="pdf") as doc:
+        text = "\n\n".join(page.get_text() for page in doc)
+    if not text.strip():
+        raise HTTPException(422, "Aucun texte intégré détecté. Choisissez le texte OCR pour un PDF scanné.")
+    return _file_response(text.encode("utf-8"), "text/plain; charset=utf-8", "texte-pdf.txt")
+
+
+@router.post("/word-text")
+def word_text(file: UploadFile = File(...)):
+    data = file.file.read(MAX_PDF_BYTES + 1)
+    _validate_docx(data)
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        xml = archive.read("word/document.xml")
+    if len(xml) > 20 * 1024 * 1024:
+        raise HTTPException(413, "Contenu texte Word trop volumineux.")
+    if b"<!DOCTYPE" in xml.upper() or b"<!ENTITY" in xml.upper():
+        raise HTTPException(400, "Déclarations XML non acceptées.")
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        raise HTTPException(400, "Document Word corrompu.")
+    ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    paragraphs = []
+    for paragraph in root.iter(ns + "p"):
+        parts = []
+        for node in paragraph.iter():
+            if node.tag == ns + "t": parts.append(node.text or "")
+            elif node.tag == ns + "tab": parts.append("\t")
+            elif node.tag in {ns + "br", ns + "cr"}: parts.append("\n")
+        paragraphs.append("".join(parts))
+    return _file_response("\n".join(paragraphs).encode("utf-8"), "text/plain; charset=utf-8", "texte-word.txt")
+
+
+@router.post("/image-ocr")
+def image_ocr(file: UploadFile = File(...)):
+    from .tools_image import _load_image, MAX_IMAGE_BYTES
+    image = _load_image(file.file.read(MAX_IMAGE_BYTES + 1)).convert("RGB")
+    image.thumbnail((4000, 4000))
+    pdf = io.BytesIO()
+    image.save(pdf, format="PDF", resolution=150)
+    text = _ocr_pdf(pdf.getvalue(), "fra+eng", 150)
+    return _file_response(text, "text/plain; charset=utf-8", "texte-image.txt")

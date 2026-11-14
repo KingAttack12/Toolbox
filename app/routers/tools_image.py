@@ -20,6 +20,10 @@ OUTPUTS = {
     "jpg": ("JPEG", "image/jpeg", "jpg"),
     "png": ("PNG", "image/png", "png"),
     "webp": ("WEBP", "image/webp", "webp"),
+    "bmp": ("BMP", "image/bmp", "bmp"),
+    "tiff": ("TIFF", "image/tiff", "tiff"),
+    "gif": ("GIF", "image/gif", "gif"),
+    "ico": ("ICO", "image/x-icon", "ico"),
 }
 
 
@@ -46,7 +50,7 @@ def _load_image(data: bytes):
 @router.post("/convert")
 def convert(
     file: UploadFile = File(...),
-    format: Literal["jpg", "png", "webp"] = Form("jpg"),
+    format: Literal["jpg", "png", "webp", "bmp", "tiff", "gif", "ico"] = Form("jpg"),
     quality: int = Form(85),
     resize_max: int = Form(0),
     rotate: int = Form(0),
@@ -78,6 +82,13 @@ def convert(
         img.thumbnail((resize_max, resize_max), Image.LANCZOS)
 
     pil_format, media_type, ext = OUTPUTS[format]
+    if pil_format in {"BMP", "TIFF", "ICO"}:
+        img = img.convert("RGBA" if pil_format == "ICO" else "RGB")
+    if pil_format == "ICO":
+        img.thumbnail((256, 256), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+        canvas.paste(img, ((256 - img.width) // 2, (256 - img.height) // 2))
+        img = canvas
     # JPEG sans canal alpha : fond blanc (pas d'EXIF recopié -> strip par défaut)
     if pil_format == "JPEG" and img.mode in ("RGBA", "LA", "PA"):
         bg = Image.new("RGB", img.size, (255, 255, 255))
@@ -104,6 +115,8 @@ def convert(
             pass
     img.save(buf, format=pil_format, **save_kwargs)
     out = buf.getvalue()
+    if not out or len(out) > 50 * 1024 * 1024:
+        raise HTTPException(413, "Image produite vide ou supérieure à 50 Mo.")
 
     base = (file.filename or "image").rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     base = "".join(c for c in base.rsplit(".", 1)[0] if c.isalnum() or c in "-_")[:50] or "image"

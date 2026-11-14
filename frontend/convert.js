@@ -3,8 +3,8 @@
   const el=id=>document.getElementById('convert'+id);
   const drop=el('Drop'),input=el('Files'),form=el('Form'),format=el('Format');
   let selected=[],options=[],busy=false,version=0,resultUrl=null,dragDepth=0;
-  const imageOutputs=[['jpg','JPG'],['png','PNG'],['webp','WebP']];
-  const imageTypes=new Set(['jpg','png','webp','gif','bmp','tiff']);
+  const imageOutputs=[['jpg','JPG'],['png','PNG'],['webp','WebP'],['bmp','BMP'],['tiff','TIFF'],['gif','GIF — image fixe'],['ico','ICO — icône']];
+  const imageTypes=new Set(['jpg','png','webp','gif','bmp','tiff','ico']);
   function option(value,label,endpoint,fields,hint=''){
     return {value,label,endpoint,fields,hint};
   }
@@ -17,16 +17,22 @@
     const type=types[0];
     if(imageTypes.has(type))return [
       ...imageOutputs.filter(([value])=>value!==type).map(([value,label])=>option(value,label,'/api/tools/image/convert',{format:value},'Les images animées sont converties en image fixe. Les métadonnées sont retirées.')),
-      option('pdf','PDF','/api/tools/pdf/from-images',{},'Une page PDF avec votre image. Pour une animation, seule la première image est utilisée.')
+      option('pdf','PDF','/api/tools/pdf/from-images',{},'Une page PDF avec votre image. Pour une animation, seule la première image est utilisée.'),
+      option('txt','Texte (.txt) — OCR','/api/tools/office/image-ocr',{},'Reconnaissance du texte français et anglais de votre image. La précision dépend de sa netteté.')
     ];
     if(type==='pdf')return [
       option('docx','Word (.docx)','/api/tools/office/pdf-to-word',{},'PDF texte : 100 pages maximum. La mise en page peut demander des retouches. Pour un scan, choisissez le texte OCR.'),
       option('png','Images PNG (ZIP)','/api/tools/pdf/to-images',{format:'png',dpi:150},'Une image par page, regroupées dans un ZIP. Maximum 50 pages.'),
       option('jpg','Images JPG (ZIP)','/api/tools/pdf/to-images',{format:'jpg',dpi:150},'Une image par page, regroupées dans un ZIP. Maximum 50 pages.'),
+      option('text','Texte (.txt) — extraction directe','/api/tools/office/pdf-text',{},'Extrait le texte déjà intégré au PDF, sans reconnaissance OCR. Maximum 100 pages.'),
       option('txt','Texte (.txt) — OCR','/api/tools/office/ocr',{language:'fra+eng',dpi:150},'Reconnaissance du texte français et anglais. Maximum 20 pages.')
     ];
-    if(type==='docx')return [option('pdf','PDF','/api/tools/office/word-to-pdf',{},'Document Word .docx. La mise en page est conservée autant que possible.')];
-    if(type==='video')return [option('mp3','MP3 — audio','/api/tools/media/mp4-to-mp3',{bitrate:'192'},'Extrait la piste audio en MP3 à 192 kb/s. La vidéo doit contenir du son.')];
+    if(type==='docx')return [option('pdf','PDF','/api/tools/office/word-to-pdf',{},'Document Word .docx. La mise en page est conservée autant que possible.'),option('txt','Texte (.txt)','/api/tools/office/word-text',{},'Extrait le texte du document sans sa mise en forme.')];
+    if(type==='audio'||type==='video'){
+      const outputs=[['mp3','MP3'],['wav','WAV'],['flac','FLAC'],['ogg','OGG'],['m4a','M4A']].map(([value,label])=>option(value,label+' — audio','/api/tools/media/convert',{format:value},'Durée maximale : 10 minutes. Sortie limitée à 50 Mo. WAV et FLAC peuvent produire des fichiers volumineux.'));
+      if(type==='video')outputs.push(...[['mp4','MP4'],['webm','WebM']].map(([value,label])=>option(value,label+' — vidéo','/api/tools/media/convert',{format:value},'Durée maximale : 10 minutes. Sortie en 720p et 30 images/s maximum, limitée à 50 Mo.')));
+      return outputs;
+    }
     return [];
   }
   async function detect(file){
@@ -40,11 +46,16 @@
     if(ascii(0,4)==='RIFF'&&ascii(8,12)==='WEBP')return 'webp';
     if(ascii(0,2)==='BM')return 'bmp';
     if(starts(0x49,0x49,0x2a,0)||starts(0x4d,0x4d,0,0x2a))return 'tiff';
+    if(starts(0,0,1,0))return 'ico';
     if(starts(0x50,0x4b,3,4)&&/\.docx$/i.test(file.name))return 'docx';
+    if(ascii(0,4)==='RIFF'&&ascii(8,12)==='WAVE')return 'audio';
+    if(ascii(0,4)==='fLaC'||ascii(0,4)==='OggS'||ascii(0,3)==='ID3')return 'audio';
+    if(bytes[0]===255&&(bytes[1]&0xe0)===0xe0)return 'audio';
+    if(ascii(4,8)==='ftyp'&&/\.(m4a|aac)$/i.test(file.name))return 'audio';
     if(ascii(4,8)==='ftyp'&&/\.(mp4|mov|m4v)$/i.test(file.name))return 'video';
     if(starts(0x1a,0x45,0xdf,0xa3)&&/\.(webm|mkv)$/i.test(file.name))return 'video';
     if(ascii(0,4)==='RIFF'&&ascii(8,12)==='AVI ')return 'video';
-    throw new Error('Format non reconnu pour « '+file.name+' ». Utilisez un PDF, un Word .docx, une image ou une vidéo compatible.');
+    throw new Error('Format non reconnu pour « '+file.name+' ». Utilisez un PDF, un Word .docx, une image, un fichier audio ou une vidéo compatible.');
   }
   function clearResult(){
     if(resultUrl)URL.revokeObjectURL(resultUrl);
@@ -108,7 +119,8 @@
       const blob=await response.blob();resultUrl=URL.createObjectURL(blob);
       const link=el('Download');link.href=resultUrl;
       const filename=/filename="([^"]+)"/.exec(response.headers.get('Content-Disposition')||'');
-      link.download=filename?filename[1]:'conversion.'+(['png','jpg'].includes(choice.value)&&selected[0]&&choice.endpoint==='/api/tools/pdf/to-images'?'zip':choice.value==='merge'?'pdf':choice.value);
+      const extension=choice.endpoint==='/api/tools/pdf/to-images'?'zip':choice.value==='merge'?'pdf':choice.value==='text'?'txt':choice.value;
+      link.download=filename?filename[1]:'conversion.'+extension;
       link.classList.remove('hidden');el('Status').textContent='Conversion terminée. Votre fichier est prêt à être téléchargé.';
     }catch(error){el('Status').textContent='';el('Error').textContent=error.message;}
     finally{busy=false;form.querySelectorAll('button,select').forEach(control=>control.disabled=false);}

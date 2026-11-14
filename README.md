@@ -137,3 +137,21 @@ Quotas persistants SQLite sur une heure glissante : 10 tentatives démarrées pa
 Le bouton propriétaire **Charge du site** actualise toutes les 5 s les CPU VM et site (ce dernier en proportion de son quota cgroup), mémoire VM et service, espace disque, tâches en cours/en attente et compteurs depuis le démarrage. La première mesure CPU est vide. Ces métriques nécessitent Linux et cgroup v2 pour les données du service ; une valeur absente est affichée indisponible. `/api/admin/load` exige le propriétaire et ne retourne ni jeton ni fichier. `/api/tools/workload` ne retourne à l’utilisateur que son état et sa place. La consultation ne demande aucune permission système supplémentaire.
 
 La file sérialise les calculs lourds, sans garantir qu’un fichier individuel reste sous la limite mémoire du service ; il faut encore surveiller les cas réels et les éventuels arrêts mémoire. Une file durable, l’isolation des conversions dans des processus et des budgets de temps CPU seront les étapes suivantes si l’usage augmente.
+
+### Conversion par dépôt de fichier
+
+La zone de dépôt reconnaît les signatures des fichiers et propose les sorties compatibles. Les serveurs valident à nouveau le contenu avant conversion.
+
+| Entrée | Sorties |
+| --- | --- |
+| Images JPG, PNG, WebP, BMP, TIFF, GIF, ICO | JPG, PNG, WebP, BMP, TIFF, GIF fixe, ICO, PDF, texte OCR |
+| PDF | Word DOCX, images PNG/JPG en ZIP, texte intégré ou texte OCR |
+| Word DOCX | PDF ou texte brut |
+| Audio MP3, WAV, FLAC, OGG, M4A, AAC | MP3, WAV, FLAC, OGG, M4A |
+| Vidéo MP4, MOV, M4V, AVI, MKV, WebM | MP4, WebM ou extraction audio dans les cinq formats ci-dessus |
+
+Plusieurs images peuvent former un PDF ; plusieurs PDF peuvent être fusionnés. Maximum 20 fichiers, 50 Mo au total, 20 Mo par image. Les animations d’image deviennent des images fixes. Les icônes sont placées dans un carré transparent de 256 pixels.
+
+Le nouveau convertisseur audio/vidéo utilise FFmpeg et **ffprobe**, déjà présents sur Oracle, avec un seul thread, un délai maximal de cinq minutes, des entrées limitées à dix minutes et des sorties limitées à 50 Mo. Les sorties vidéo sont plafonnées à 1280×720 et 30 images/s, sans agrandissement ; les sources supérieures à la 4K sont refusées. Les WAV et FLAC peuvent dépasser la limite de sortie : la conversion est alors refusée, sans livrer un fichier tronqué. Les formats d’entrée sont imposés d’après leur signature, les playlists sont refusées et les protocoles réseau FFmpeg sont désactivés. Les fichiers temporaires sont nettoyés après la réponse.
+
+Tests réels sur l’environnement serveur : `python -m unittest discover -s tests -p test_more_conversions.py -v`. Ils utilisent uniquement des fichiers synthétiques, des sessions isolées et une base temporaire.
