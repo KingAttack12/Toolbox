@@ -7,7 +7,7 @@
 <title>Toolbox privée</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232563eb'/%3E%3Cpath d='M17 20h30v8H17zm0 16h13v8H17zm20 0h10v8H37zM29 28h8v8h-8z' fill='white'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#f4f6fb">
-<link rel="stylesheet" href="/static/style.css?v=20">
+<link rel="stylesheet" href="/static/style.css?v=21">
 </head>
 <body>
 <header class="topbar">
@@ -16,6 +16,7 @@
   <nav id="topActions" class="top-actions" aria-label="Navigation du compte">
     <button id="themeBtn" title="Mode sombre/clair" aria-label="Basculer le thème">🌙</button>
     <button id="newsToggle" type="button" aria-pressed="true" aria-controls="newsBanner">Actualités</button>
+    <button id="aiBtn" class="hidden" type="button">IA · essai</button>
     <button id="loadBtn" class="hidden" type="button">Charge du site</button>
     <button id="adminBtn" class="hidden" type="button">Administration</button>
     <button id="profileBtn" class="hidden" type="button">Mon compte</button>
@@ -159,9 +160,24 @@
   </div>
 </div>
 
-<script src="/static/app.js?v=21"></script>
+<div id="aiModal" class="modal hidden">
+  <section class="modal-box" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="modal-head"><h3 id="aiTitle">IA locale · essai administrateur</h3><button id="aiClose" type="button" aria-label="Fermer l’essai IA">✕</button></div>
+    <p class="muted">Qwen3 1.7B · texte traité sur cette VM, sans historique enregistré. Relisez le résultat : ce petit modèle peut faire des erreurs.</p>
+    <p id="aiResources" class="muted" role="status">Chargement des mesures…</p>
+    <form id="aiForm"><label>Action<select id="aiMode"><option value="summary">Résumer en trois points</option><option value="rewrite">Reformuler clairement</option><option value="correct">Proposer une correction</option></select></label>
+      <label>Votre texte<textarea id="aiText" minlength="20" maxlength="2000" required rows="6" placeholder="Collez un texte de 20 à 2 000 caractères…"></textarea></label>
+      <p class="muted">Une demande à la fois, avec la file des conversions. Réponse limitée à 192 tokens pour cet essai.</p>
+      <button id="aiRun" type="submit">Lancer l’essai</button>
+    </form>
+    <p id="aiStatus" role="status" aria-live="polite"></p><p id="aiError" class="error" role="alert"></p>
+    <pre id="aiOutput" class="output hidden"></pre>
+  </section>
+</div>
+<script src="/static/app.js?v=22"></script>
 <script src="/static/news.js?v=1"></script>
 <script src="/static/convert.js?v=2"></script>
+<script src="/static/ai.js?v=1"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">Code source</a>

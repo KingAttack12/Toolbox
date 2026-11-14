@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, jobs, news
-from .routers import monitor_routes, auth_routes, tools_anime, tools_bio, tools_calc, tools_image, tools_media, tools_office, tools_pdf, tools_qr, tools_text, tools_youtube
+from .routers import monitor_routes, auth_routes, local_ai, tools_anime, tools_bio, tools_calc, tools_image, tools_media, tools_office, tools_pdf, tools_qr, tools_text, tools_youtube
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("toolbox")
@@ -30,10 +30,12 @@ def _startup() -> None:
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "ai_enabled": bool(config.AI_API_KEY)}
+    return {"ok": True, "ai_enabled": config.LOCAL_AI_ENABLED}
 
 
 app.include_router(auth_routes.router)
+app.include_router(local_ai.router)
+app.include_router(local_ai.work_router)
 app.include_router(news.router)
 app.include_router(monitor_routes.router)
 app.include_router(tools_anime.router)

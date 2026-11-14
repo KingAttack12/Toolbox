@@ -119,7 +119,7 @@ $("#themeBtn").onclick = ()=>{
 async function checkMe(){
   try{
     const r = await fetch("/api/me");
-    if(r.ok){ const me=await r.json(); $("#adminBtn").classList.toggle("hidden",!me.is_admin); $("#loadBtn").classList.toggle("hidden",!me.is_admin); $("#profileBtn").classList.toggle("hidden",me.is_admin); showApp(); return true; }
+    if(r.ok){ const me=await r.json(); $("#adminBtn").classList.toggle("hidden",!me.is_admin); $("#loadBtn").classList.toggle("hidden",!me.is_admin); $("#profileBtn").classList.toggle("hidden",me.is_admin); $('#aiBtn').classList.toggle('hidden',!me.is_admin||!me.ai_enabled); showApp(); return true; }
   }catch(e){}
   showLogin(); refreshRegistration(); return false;
 }

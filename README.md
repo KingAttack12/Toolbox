@@ -181,6 +181,34 @@ Les quotas sont conservés dans SQLite. Une tentative admise compte même si le 
 
 ## Données et sécurité
 
+### Essai IA locale — propriétaire uniquement
+
+Une expérimentation facultative utilise **Qwen3 1.7B Q4** avec Ollama sur la VM pour résumer, reformuler et corriger des textes courts. Le bouton **IA · essai** est réservé au propriétaire ; les autres comptes ne peuvent pas appeler ses routes. Aucune clé d’API externe n’est nécessaire.
+
+L’essai accepte de 20 à 2 000 caractères, limite la réponse à 192 tokens et désactive le raisonnement prolongé. Le modèle dispose d’un contexte de 2 048 tokens et de deux threads. L’IA partage la file et les quotas des conversions ; elle ne démarre pas pendant une autre opération lourde. Les textes et réponses ne sont pas enregistrés dans un historique.
+
+Le service séparé `toolbox-ai` est plafonné à **150 % de CPU** (1,5 cœur) et **4 Gio de RAM**, sans swap. Son API écoute uniquement sur `127.0.0.1:11435` et le mode cloud est désactivé. Le modèle est déchargé après deux minutes d’inactivité. L’interface affiche le temps de réponse, le débit de génération et les mesures CPU/RAM du service. La qualité des réponses doit être vérifiée par l’utilisateur.
+
+Mesures initiales du 14 novembre 2026 sur Oracle ARM, pour deux textes synthétiques courts : correction en **8,7 s**, résumé en **16,7 s**, génération à **8,7–9,5 tokens/s**, RAM du service jusqu’à **2,89 Gio**. Les requêtes de santé du site ont toutes répondu pendant l’essai (maximum local observé : 56 ms). Ce petit échantillon ne garantit pas les performances avec d’autres textes ; une faute a été laissée dans la correction. Le benchmark reproductible se trouve dans `deploy/benchmark-local-ai.py`.
+
+L’installation ARM64 est fournie dans `deploy/install-local-ai.sh`, avec l’unité `deploy/toolbox-ai.service`. L’interface reste désactivée par défaut (`TOOLBOX_LOCAL_AI=0`). Sur l’instance Oracle de ce dépôt, après installation et mesure des performances :
+
+```bash
+# Depuis la racine du projet ; chaque commande redémarre Toolbox.
+.venv/bin/python deploy/local-ai-control.py enable
+.venv/bin/python deploy/local-ai-control.py disable
+```
+
+Pour retirer entièrement le moteur et le modèle de cet essai :
+
+```bash
+sudo bash deploy/uninstall-local-ai.sh
+```
+
+Ce script désactive l’interface, supprime le service dédié, son stockage de modèle et `/opt/toolbox-ai` uniquement si le marqueur de cette installation est présent. Il conserve les comptes, les fichiers de conversion et le code facultatif de l’intégration. Ces scripts ciblent l’instance Oracle et le service `toolbox` ; adaptez-les avant utilisation ailleurs.
+
+### Conservation des données
+
 Les fichiers sont traités sur le serveur, en mémoire ou dans des dossiers temporaires. Certaines conversions nettoient leurs fichiers dès la fin du traitement ; les autres passent par un nettoyage automatique, avec une durée cible de **deux heures** par défaut. Il n’existe pas encore d’historique durable permettant de retélécharger ses résultats.
 
 Les comptes, mots de passe hachés, états, dates de connexion et quotas sont enregistrés dans `data/accounts.sqlite3`. Le journal des décisions administratives est conservé trente jours. Le navigateur mémorise les favoris, les outils récents, le thème et le choix d’affichage des actualités.

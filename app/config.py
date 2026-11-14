@@ -54,6 +54,7 @@ AI_MODEL: str = _get("AI_MODEL", "")
 
 SESSION_COOKIE = "toolbox_session"
 SESSION_TTL_SECONDS = 12 * 3600
+LOCAL_AI_ENABLED = _get("TOOLBOX_LOCAL_AI", "0") == "1"
 
 # Transactional mail: secrets belong in the server .env only.
 PUBLIC_URL = _get("TOOLBOX_PUBLIC_URL", "https://mytoolbox.duckdns.org").rstrip("/")

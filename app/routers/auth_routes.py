@@ -58,7 +58,7 @@ def logout(request: Request, response: Response, user: str = Depends(get_current
 def me(user: str = Depends(get_current_user)):
     with accounts.database() as db:
         row = db.execute("SELECT email,verified FROM accounts WHERE username=?", (user,)).fetchone()
-    return {"user": user, "email": row["email"] if row else None, "verified": bool(row and row["verified"]), "is_admin": user == config.USERNAME, "ai_enabled": bool(config.AI_API_KEY)}
+    return {"user": user, "email": row["email"] if row else None, "verified": bool(row and row["verified"]), "is_admin": user == config.USERNAME, "ai_enabled": bool(config.LOCAL_AI_ENABLED and user == config.USERNAME)}
 
 
 # Custom same-origin header is required for the new state-changing beta APIs.
