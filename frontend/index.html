@@ -7,7 +7,7 @@
 <title>Toolbox privée</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232563eb'/%3E%3Cpath d='M17 20h30v8H17zm0 16h13v8H17zm20 0h10v8H37zM29 28h8v8h-8z' fill='white'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#f4f6fb">
-<link rel="stylesheet" href="/static/style.css?v=18">
+<link rel="stylesheet" href="/static/style.css?v=19">
 </head>
 <body>
 <header class="topbar">
@@ -15,12 +15,22 @@
   <button id="menuToggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="topActions">Menu <span aria-hidden="true">☰</span></button>
   <nav id="topActions" class="top-actions" aria-label="Navigation du compte">
     <button id="themeBtn" title="Mode sombre/clair" aria-label="Basculer le thème">🌙</button>
+    <button id="newsToggle" type="button" aria-pressed="true" aria-controls="newsBanner">Actualités</button>
     <button id="loadBtn" class="hidden" type="button">Charge du site</button>
     <button id="adminBtn" class="hidden" type="button">Administration</button>
     <button id="profileBtn" class="hidden" type="button">Mon compte</button>
     <button id="logoutBtn" class="hidden">Déconnexion</button>
   </nav>
 </header>
+<aside id="newsBanner" class="news-banner hidden" aria-label="Actualités France et monde">
+  <div class="news-bar">
+    <span class="news-label">À la une</span>
+    <div id="newsViewport" class="news-viewport"><ul id="newsTrack" class="news-track"></ul></div>
+    <button id="newsPause" type="button" aria-label="Mettre le défilement en pause" aria-pressed="false">Pause</button>
+    <button id="newsHide" type="button" aria-label="Masquer le bandeau d’actualités">✕</button>
+  </div>
+  <details id="newsDetails"><summary>Lire la liste des titres <span id="newsUpdated"></span></summary><ul id="newsList"></ul></details>
+</aside>
 
 <!-- Login -->
 <section id="loginView" class="login-wrap hidden">
@@ -130,7 +140,8 @@
   </div>
 </div>
 
-<script src="/static/app.js?v=20"></script>
+<script src="/static/app.js?v=21"></script>
+<script src="/static/news.js?v=1"></script>
 
 <footer class="footer">
   <a href="https://github.com/KingAttack12/Toolbox" target="_blank" rel="noopener">Code source</a>

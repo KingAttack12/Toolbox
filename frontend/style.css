@@ -215,3 +215,37 @@ input[type=file]{max-width:100%;overflow:hidden}
   .field label:has(input[type=checkbox]){display:flex;align-items:center;min-height:44px;gap:4px}
   .field input[type=checkbox]{flex-shrink:0}
 }
+
+/* Compact, optional news ticker */
+.news-banner{background:var(--card);border-bottom:1px solid var(--line);padding:0 max(16px,env(safe-area-inset-left))}
+.news-bar{display:flex;align-items:center;gap:12px;min-height:44px;max-width:1400px;margin:auto}
+.news-label{font-size:.75rem;font-weight:700;color:var(--acc);white-space:nowrap}
+.news-viewport{min-width:0;flex:1;overflow:hidden}
+.news-track,.news-group>ul{display:flex;align-items:center;width:max-content;list-style:none;padding:0;margin:0}
+.news-track{font-size:.8rem;line-height:1.5}
+.news-group>ul>li{padding-right:40px;white-space:nowrap}
+.news-track a,.news-banner details a{color:var(--ink);text-decoration:none}
+.news-track a:hover,.news-banner details a:hover{text-decoration:underline;color:var(--acc)}
+.news-track span{color:var(--muted);font-size:.72rem}
+.news-moving{animation:news-scroll var(--news-duration,90s) linear infinite}
+@keyframes news-scroll{to{transform:translateX(-50%)}}
+.news-paused .news-moving,.news-banner:hover .news-moving,.news-banner:focus-within .news-moving{animation-play-state:paused}
+.news-bar>button{flex-shrink:0;min-width:44px;min-height:44px;border:0;border-radius:4px;background:transparent;color:var(--muted);font:inherit;font-size:.75rem}
+.news-bar>button:hover{background:var(--surface);color:var(--ink)}
+#newsToggle[aria-pressed=false]{color:var(--muted)}
+.news-banner details{max-width:1400px;margin:0 auto;padding-bottom:6px;font-size:.75rem;color:var(--muted)}
+.news-banner summary{cursor:pointer;min-height:24px;padding:2px 0}
+.news-banner details ul{list-style:none;margin:8px 0;padding:0;display:grid;gap:10px}
+.news-banner details li{overflow-wrap:anywhere;line-height:1.6}
+.news-banner details li span{color:var(--muted)}
+@media(max-width:540px){
+ .news-bar{gap:6px}.news-label{font-size:.7rem}.news-track{font-size:.8rem}
+ .news-banner summary{min-height:32px}.news-banner details{font-size:.8rem}
+ #newsUpdated{font-size:.7rem}.news-banner details a{display:inline-block;padding:6px 0}
+}
+@media(prefers-reduced-motion:reduce){
+ .news-moving{animation:none!important;transform:none!important}
+ .news-copy{display:none}
+ .news-viewport{overflow-x:auto;scrollbar-width:thin}
+ #newsPause{display:none}
+}
